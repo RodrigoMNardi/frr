@@ -39,7 +39,6 @@ module GRPC
          request = Frr::ExecuteRequest.new
          request.path = path
          response = @stub.execute(request)
-         puts response.inspect
          response.output.each do |o|
            puts "  #{o.path}: #{o.value}"
          end
@@ -60,7 +59,6 @@ module GRPC
 
       def create_candidate
         response = @stub.create_candidate(Frr::CreateCandidateRequest.new)
-        puts "  candidate_id: #{response.candidate_id}"
         response.candidate_id
       end
 
@@ -82,21 +80,24 @@ module GRPC
         end
       end
 
-      def enable_ecmp(candidate_id)
+      def enable_ecmp(candidate_id, vrf="default")
         request = set_request_candidate(candidate_id)
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance/allow-ecmp", value: "true"))
+        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/allow-ecmp",
+                                               value: "true"))
         edit(request)
       end
 
-      def disable_ecmp(candidate_id)
+      def disable_ecmp(candidate_id, vrf="default")
         request = set_request_candidate(candidate_id)
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance/allow-ecmp", value: "false"))
+        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/allow-ecmp",
+                                               value: "false"))
         edit(request)
       end
 
-      def explicit_neighbor(candidate_id, neighbor)
+      def explicit_neighbor(candidate_id, neighbor, vrf="default")
         request = set_request_candidate(candidate_id)
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance/explicit-neighbor", value: neighbor))
+        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/explicit-neighbor",
+                                               value: neighbor))
         edit(request)
       end
 
@@ -118,16 +119,55 @@ module GRPC
 
       def commit(candidate_id, comment, phase = :ALL)
         begin
-          request = Frr::CommitRequest.new
+          request              = Frr::CommitRequest.new
           request.candidate_id = candidate_id
-          request.phase = phase
-          request.comment = comment
+          request.phase        = phase
+          request.comment      = comment
+
           response = @stub.commit(request)
           puts "  transaction_id: #{response.transaction_id}"
           response.transaction_id
         rescue GRPC::Aborted
           puts "No configuration changes detected"
         end
+      end
+
+      def enable_information_originate(candidate_id, vrf='default')
+        request = set_request_candidate(candidate_id)
+        request.
+            update.
+            push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/default-information-originate",
+                                    value: "true"))
+        edit(request)
+      end
+
+      def disable_information_originate(candidate_id, vrf='default')
+        request = set_request_candidate(candidate_id)
+        request.
+            update.
+            push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/default-information-originate",
+                                    value: "false"))
+        edit(request)
+      end
+
+      def metric(candidate_id, value, vrf='default')
+        unless (1..16).include? value.to_i
+          raise "Invalid value range. Expected a value between 1 to 255."
+        end
+        request = set_request_candidate(candidate_id)
+        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/default-metric",
+                                               value: value.to_s))
+        edit(request)
+      end
+
+      def distance(candidate_id, value, vrf='default')
+        unless (1..255).include? value.to_i
+          raise "Invalid value range. Expected a value between 1 to 255."
+        end
+        request = set_request_candidate(candidate_id)
+        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/distance",
+                                               value: value.to_s))
+        edit(request)
       end
 
       private
@@ -140,6 +180,12 @@ module GRPC
         request = Frr::EditCandidateRequest.new
         request.candidate_id = id
         request
+      end
+    end
+
+    class RipConfig < Northbound
+      def initialize(candidate_id)
+        @candidate_id = candidate_id
       end
     end
   end
