@@ -19,7 +19,7 @@ module GRPC
   module FRR
     class Rip < Northbound
       def initialize(host, options, security = :this_channel_is_insecure)
-        @push = "/frr-ripd:ripd"
+        @push       = "/frr-ripd:ripd"
         super
       end
 
@@ -59,7 +59,7 @@ module GRPC
 
       def create_candidate
         response = @stub.create_candidate(Frr::CreateCandidateRequest.new)
-        response.candidate_id
+        RipCandidate.new(response.candidate_id)
       end
 
       def update_candidate(id)
@@ -80,48 +80,12 @@ module GRPC
         end
       end
 
-      def enable_ecmp(**params)
-        request = set_request_candidate(params[:id])
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{set_vrf(params)}']/allow-ecmp",
-                                               value: "true"))
-        edit(request)
-      end
-
-      def disable_ecmp(**params)
-        request = set_request_candidate(params[:id])
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{set_vrf(params)}']/allow-ecmp",
-                                               value: "false"))
-        edit(request)
-      end
-
-      def explicit_neighbor(**params)
-        path    = "/frr-ripd:ripd/instance[vrf='#{set_vrf(params)}']/explicit-neighbor"
-        request = set_request_candidate(params[:id])
-        request.update.push(Frr::PathValue.new(path: path,
-                                               value: params[:neighbor]))
-        edit(request)
-      end
-
-      def load_2_candidate(candidate_id, data, mode)
-        request               = Frr::LoadToCandidateRequest.new
-        request.candidate_id  = candidate_id
-        request.type          = mode
-
-        config                = Frr::DataTree.new
-        config.encoding       = :JSON
-        config.data           = data.to_json
-
-        request.config = config
-
-        puts request.inspect
-
-        @stub.load_to_candidate(request)
-      end
-
       def commit(**params)
+        load_2_candidate(params[:candidate].id, params[:candidate].config, :REPLACE)
+
         begin
           request              = Frr::CommitRequest.new
-          request.candidate_id = params[:id]
+          request.candidate_id = params[:candidate].id
           request.phase        = params[:phase]   || :ALL
           request.comment      = params[:comment] || "AUTOMATIC"
 
@@ -133,67 +97,103 @@ module GRPC
         end
       end
 
-      def enable_information_originate(candidate_id, vrf='default')
-        request = set_request_candidate(candidate_id)
-        request.
-            update.
-            push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/default-information-originate",
-                                    value: "true"))
-        edit(request)
+      private
+
+      def load_2_candidate(candidate_id, data, mode)
+        request               = Frr::LoadToCandidateRequest.new
+        request.candidate_id  = candidate_id
+        request.type          = mode
+
+        config                = Frr::DataTree.new
+        config.encoding       = :JSON
+        config.data           = data.to_json
+
+        puts config.inspect
+        request.config = config
+
+        @stub.load_to_candidate(request)
+      end
+    end
+
+    class RipCandidate
+      attr_reader :id, :config
+
+      def initialize(id)
+        @id = id
+        @config = {"frr-ripd:ripd": {"instance": [{"vrf": 'default'}]}}
       end
 
-      def disable_information_originate(candidate_id, vrf='default')
-        request = set_request_candidate(candidate_id)
-        request.
-            update.
-            push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{vrf}']/default-information-originate",
-                                    value: "false"))
-        edit(request)
+      def enable_ecmp
+        @config[:"frr-ripd:ripd"][:"instance"][0]["allow-ecmp"] = true
+      end
+
+      def disable_ecmp
+        puts  @config.inspect
+        @config[:"frr-ripd:ripd"][:"instance"][0]["allow-ecmp"] = false
+      end
+
+      def explicit_neighbor(**params)
+        unless @config[:"frr-ripd:ripd"][:"instance"][0].has_key? "explicit-neighbor"
+          @config[:"frr-ripd:ripd"][:"instance"][0]["explicit-neighbor"] = []
+        end
+        @config[:"frr-ripd:ripd"][:"instance"][0]["explicit-neighbor"] << params[:neighbor]
+      end
+
+      def enable_information_originate(vrf='default')
+        @config[:"frr-ripd:ripd"][:"instance"][0]["default-information-originate"] = true
+      end
+
+      def disable_information_originate(vrf='default')
+        @config[:"frr-ripd:ripd"][:"instance"][0]["default-information-originate"] = false
       end
 
       def metric(**params)
         unless (1..16).include? params[:value]
           raise "Invalid value range. Expected a value between 1 to 255."
         end
-        request = set_request_candidate(params[:id])
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{set_vrf(params)}']/default-metric",
-                                               value: params[:value].to_s))
-        edit(request)
+
+        @config[:"frr-ripd:ripd"][:"instance"][0]["default-metric"] = params[:value].to_s
       end
 
       def distance(**params)
         unless (1..255).include? params[:value].to_i
           raise "Invalid value range. Expected a value between 1 to 255."
         end
-        request = set_request_candidate(params[:id])
-        request.update.push(Frr::PathValue.new(path: "/frr-ripd:ripd/instance[vrf='#{set_vrf(params)}']/distance",
-                                               value: params[:distance].to_s))
-        edit(request)
+
+        @config[:"frr-ripd:ripd"][:"instance"][0]["distance"] = params[:value].to_s
       end
 
       def add_source(**params)
-        path    = "/frr-ripd:ripd/instance[vrf='#{set_vrf(params)}']"
-        path   +="/distance/source[prefix='#{params[:source]}']/distance"
-        request = set_request_candidate(params[:id])
-        request.update.push(Frr::PathValue.new(path: path,
-                                               value: params[:distance].to_s))
-        edit(request)
+        @config[:"frr-ripd:ripd"][:"instance"][0]["distance"] = {source:
+                                                                  [{prefix: params[:source],
+                                                                    distance: params[:distance]}
+                                                                  ]}
       end
 
-      private
-
-      def edit(request)
-        @stub.edit_candidate(request)
+      def network(**params)
+        unless @config[:"frr-ripd:ripd"][:"instance"][0].key? "network"
+          @config[:"frr-ripd:ripd"][:"instance"][0]["network"] = []
+        end
+        @config[:"frr-ripd:ripd"][:"instance"][0]["network"] << params[:prefix]
       end
 
-      def set_request_candidate(id)
-        request = Frr::EditCandidateRequest.new
-        request.candidate_id = id
-        request
+      def interface(**params)
+        raise "Invalid interface must be between 1 to 16" unless (1..16).include? params[:interface]
+        unless @config[:"frr-ripd:ripd"][:"instance"][0].key? "interface"
+          @config[:"frr-ripd:ripd"][:"instance"][0]["interface"] = []
+        end
+        @config[:"frr-ripd:ripd"][:"instance"][0]["interface"] << params[:interface]
       end
 
-      def set_vrf(params)
-        (params.has_key? :vrf)? params[:vrf] : 'default'
+      def access_list_direction_metric(**params)
+        @config[:"frr-ripd:ripd"][:"instance"][0]["offset-list"] = [
+            {
+                "interface":   params["interface"]   || '*',
+                "direction":   params["direction"]   || 'in',
+                "access-list": params["access_list"] || 'undefined',
+                "metric":      params["metric"]      || 4
+            }
+        ]
       end
     end
   end
