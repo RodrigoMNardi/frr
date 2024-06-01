@@ -91,6 +91,8 @@ def test_bgp_aggregate_address_origin():
     test_func = functools.partial(_bgp_converge, router)
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
 
+    result = 'Booooommmmmmmm'
+
     assert result is None, 'Failed to see bgp convergence in "{}"'.format(router)
 
     test_func = functools.partial(_bgp_aggregate_address_has_metric, router)
