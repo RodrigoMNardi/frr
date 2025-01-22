@@ -12,15 +12,17 @@
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../packets'))
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../../packets/igmp"))
 
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from igmp_v1 import IGMPv1
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
+# Global variables
+topo = None
+intf1 = None
 
 #####################################################
 ##
@@ -28,6 +30,21 @@ sys.path.append(os.path.join(CWD, "../"))
 ##
 #####################################################
 
+def setup_module(mod):
+    """
+    Sets up the pytest environment
+
+    * `mod`: module name
+    """
+    global topo, intf1
+
+    print("----------------------------------------------")
+    print("Setting up the topology...")
+
+    # This function initiates the topology build with Topogen...
+    json_file = "{}/ospf_gr_helper.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    topo = tgen.json_topo
 
 def build_topo(tgen):
     tgen.add_router("r1")
@@ -35,7 +52,10 @@ def build_topo(tgen):
     # On main router
     # First switch is for a dummy interface (for local network)
     switch = tgen.add_switch("sw1")
+    tgen.add_host("h1", "192.168.100.100/24", "via 192.168.100.1")
+
     switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["h1"])
 
 #####################################################
 ##
@@ -61,27 +81,13 @@ def teardown_module(_mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
-
-def test_converge_protocols():
-    """Wait for protocol convergence"""
-
-    tgen = get_topogen()
-
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    topotest.sleep(5, "Waiting for IGMP convergence")
-
 def test_send_igmp_v1():
     """Send IGMPv1 packet without Router Alert"""
 
-    tgen = get_topogen()
-
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    r1 = tgen.gears["r1"]
-
     # Create an IGMPv1 packet without Router Alert
     igmp_packet = IGMPv1(gaddr="224.0.0.1")
-    igmp_packet.send(iface=r1.get_ifname("eth0"))
+    igmp_packet.send(iface=intf1)
+
+if __name__ == "__main__":
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))

@@ -1,0 +1,31 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 24
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32
+    },
+    "switches": {
+        "s1": {
+            "links": {
+                "r1": {
+                    "ipv4": "17.1.1.1/24"
+                }
+            }
+        }
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback"
+                }
+            }
+        }
+    }
+}
