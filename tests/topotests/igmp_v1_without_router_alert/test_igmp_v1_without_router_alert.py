@@ -30,6 +30,8 @@ from igmp_v1 import IGMPv1
 #####################################################
 
 HOST_IP = "192.168.1.10"
+GADDR = '224.1.2.3'
+GADDR_RA = '224.4.5.6'
 
 def build_topo(tgen):
     router = tgen.add_router("r1")
@@ -62,26 +64,57 @@ def teardown_module(_mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
-def test_send_igmp_v1():
+def test_send_igmp_v1_without_router_alert():
     """Send IGMPv1 packet without Router Alert"""
-
-    # Create an IGMPv1 packet without Router Alert
 
     tgen = get_topogen()
 
     tgen.gears['r1'].vtysh_cmd("debug igmp")
     tgen.gears['r1'].vtysh_cmd("debug pim")
 
+    output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
+
+    assert GADDR not in output, f"Expected {GADDR} to be in the output"
+
     logger.info("Sending IGMPv1 packet without Router Alert")
-    cmd = f"--src_ip {HOST_IP} --gaddr '224.1.2.3' --iface 'h1-eth0' --count 3"
+    cmd = f"--src_ip {HOST_IP} --gaddr {GADDR} --iface 'h1-eth0' --count 3 --type 0x12"
     tgen.gears["h1"].run(f"python {CWD}/../../packets/igmp/igmp_v1.py {cmd}")
 
     sleep(3)
 
     logger.info("IGMPv1 packet sent successfully")
 
-    logger.info(tgen.gears['r1'].vtysh_cmd("show ip igmp groups"))
-    logger.info(tgen.gears['r1'].vtysh_cmd("show ip igmp join"))
+    output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
+
+    assert GADDR in output, f"Expected {GADDR} to be in the output"
+
+    logger.info(output)
+
+def test_send_igmp_v1_with_router_alert():
+    """Send IGMPv1 packet without Router Alert"""
+
+    tgen = get_topogen()
+
+    tgen.gears['r1'].vtysh_cmd("debug igmp")
+    tgen.gears['r1'].vtysh_cmd("debug pim")
+
+    output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
+
+    assert GADDR_RA not in output, f"Expected {GADDR_RA} to be in the output"
+
+    logger.info("Sending IGMPv1 packet without Router Alert")
+    cmd = f"--src_ip {HOST_IP} --gaddr {GADDR_RA} --iface 'h1-eth0' --count 3 --type 0x12 --enable_router_alert"
+    tgen.gears["h1"].run(f"python {CWD}/../../packets/igmp/igmp_v1.py {cmd}")
+
+    sleep(3)
+
+    logger.info("IGMPv1 packet sent successfully")
+
+    output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
+
+    assert GADDR_RA in output, f"Expected {GADDR_RA} to be in the output"
+
+    logger.info(output)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

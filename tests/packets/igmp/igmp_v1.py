@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send an IGMPv1 packet")
     parser.add_argument("--gaddr", type=str, default="224.0.0.1", help="Group address")
     parser.add_argument("--src_ip", type=str, default="192.168.1.10", help="Source IP address")
-    parser.add_argument("--type", type=int, default=0x11, help="Type of IGMP message")
+    parser.add_argument("--type", type=lambda x: int(x, 0), default=0x11, help="Type of IGMP message")
     parser.add_argument("--enable_router_alert", action="store_true", help="Enable Router Alert option")
     parser.add_argument("--iface", type=str, default="eth0", help="Network interface to send the packet")
     parser.add_argument("--count", type=int, default=1, help="Number of packets to send")
