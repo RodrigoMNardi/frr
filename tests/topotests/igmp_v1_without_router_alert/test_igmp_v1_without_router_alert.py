@@ -32,6 +32,7 @@ from igmp_v1 import IGMPv1
 HOST_IP = "192.168.1.10"
 GADDR = '224.1.2.3'
 GADDR_RA = '224.4.5.6'
+GADDR_RA_ENABLED = "224.7.8.9"
 
 def build_topo(tgen):
     router = tgen.add_router("r1")
@@ -69,8 +70,7 @@ def test_send_igmp_v1_without_router_alert():
 
     tgen = get_topogen()
 
-    tgen.gears['r1'].vtysh_cmd("debug igmp")
-    tgen.gears['r1'].vtysh_cmd("debug pim")
+    enable_debugging()
 
     output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
 
@@ -95,8 +95,7 @@ def test_send_igmp_v1_with_router_alert():
 
     tgen = get_topogen()
 
-    tgen.gears['r1'].vtysh_cmd("debug igmp")
-    tgen.gears['r1'].vtysh_cmd("debug pim")
+    enable_debugging()
 
     output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
 
@@ -115,6 +114,48 @@ def test_send_igmp_v1_with_router_alert():
     assert GADDR_RA in output, f"Expected {GADDR_RA} to be in the output"
 
     logger.info(output)
+
+def test_igmp_v1_interface_router_alert_packet_without_router_alert():
+    """Send IGMPv1 packet without Router Alert"""
+
+    tgen = get_topogen()
+
+    enable_debugging()
+
+    output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
+
+    enable_ra = "ip igmp require-router-alert"
+
+    output = tgen.gears['r1'].vtysh_cmd (f"conf t\ninterface r1-eth0\n{enable_ra}")
+    logger.info(output)
+
+    assert GADDR_RA_ENABLED not in output, f"Expected {GADDR_RA_ENABLED} to be in the output"
+
+    output = tgen.gears['r1'].vtysh_cmd("show run")
+
+    logger.info(output)
+
+    assert enable_ra in output, f"Expected 'ip igmp require-router-alert' to be in the output"
+
+    logger.info("Sending IGMPv1 packet without Router Alert")
+    cmd = f"--src_ip {HOST_IP} --gaddr {GADDR_RA_ENABLED} --iface 'h1-eth0' --count 3 --type 0x12"
+    tgen.gears["h1"].run(f"python {CWD}/../../packets/igmp/igmp_v1.py {cmd}")
+
+    sleep(3)
+
+    logger.info("IGMPv1 packet sent successfully")
+
+    output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
+
+    assert GADDR_RA_ENABLED not in output, f"Expected {GADDR_RA_ENABLED} to be in the output"
+
+    logger.info(output)
+
+def enable_debugging():
+    tgen = get_topogen()
+    tgen.gears['r1'].vtysh_cmd("debug igmp")
+    tgen.gears['r1'].vtysh_cmd("debug pim")
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
