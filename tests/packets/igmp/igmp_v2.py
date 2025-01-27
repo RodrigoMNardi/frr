@@ -8,65 +8,65 @@
 #  Copyright (c) 2025 by
 #  Network Device Education Foundation, Inc. ("NetDEF")
 #
+import argparse
 
-"""
-IGMPv2 Packet Class
+from scapy.all import ByteField, ShortField, IPField
+from scapy.fields import BitField
+from igmp import IGMP
 
-This module defines the IGMPv2 class, which represents an IGMPv2 packet. The class is built using the Scapy library and allows for the creation and manipulation of IGMPv2 packets, including the optional addition of a Router Alert field.
-
-Classes:
-    IGMPv2: Represents an IGMPv2 packet.
-
-Usage Example:
-    from scapy.all import sendp
-    from igmp_v2 import IGMPv2
-
-    # Create an IGMPv2 packet without Router Alert
-    igmp_packet = IGMPv2(gaddr="224.0.0.1")
-    igmp_packet.show()
-
-    # Enable Router Alert
-    igmp_packet.enable_router_alert()
-    igmp_packet.show()
-
-    # Send the packet on the network interface (e.g., eth0)
-    sendp(igmp_packet, iface="eth0")
-"""
-
-from scapy.all import Packet, ByteField, ShortField, IPField, ConditionalField
-
-
-class IGMPv2(Packet):
+class IGMPv2(IGMP):
     """
-    Represents an IGMPv2 packet.
+    IGMPv2 class for creating and manipulating IGMP version 2 packets.
 
     Attributes:
-        type (int): The type of the IGMP message (default is 0x16).
-        max_resp_time (int): The maximum response time (default is 10).
-        checksum (int): The checksum of the packet (default is None).
-        gaddr (str): The group address (default is "0.0.0.0").
-        router_alert (int): The Router Alert field (default is 0x0, conditional).
+        name (str): Name of the protocol.
+        fields_desc (list): List of fields in the IGMPv2 packet.
+        version (int): IGMP version.
+        type (int): Type of IGMP message.
+        max_resp_time (int): Maximum response time.
+        chksum (int): Checksum of the packet.
+        gaddr (str): Group address.
+        src_ip (str): Source IP address.
+        options (list): Additional options for the packet.
 
     Methods:
-        enable_router_alert(value=0x94):
-            Enables the Router Alert field with the specified value.
+        __init__(self, version=1, type=0x11, max_resp_time=10, chksum=None, gaddr="0.0.0.0", src_ip="192.168.100.1", *args, **kwargs):
+            Initializes an IGMPv2 packet with the given parameters.
     """
 
     name = "IGMPv2"
     fields_desc = [
-        ByteField("type", 0x16),
+        BitField("version", 1, 4),
+        BitField("type", 0x11, 4),
         ByteField("max_resp_time", 10),
         ShortField("checksum", None),
-        IPField("gaddr", "0.0.0.0"),
-        ConditionalField(ByteField("router_alert", 0x0), lambda pkt: hasattr(pkt, 'router_alert_enabled') and pkt.router_alert_enabled)
+        IPField("gaddr", "0.0.0.0")
     ]
 
-    def enable_router_alert(self, value=0x9404):
-        """
-        Enables the Router Alert field with the specified value.
+    def __init__(self, version=1, type=0x11, max_resp_time=10, chksum=None, gaddr="0.0.0.0", src_ip="192.168.100.1", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.version = version
+        self.type = type
+        self.max_resp_time = max_resp_time
+        self.chksum = chksum
+        self.gaddr = gaddr
+        self.src_ip = src_ip
+        self.options = []
 
-        Args:
-            value (int): The value to set for the Router Alert field (default is 0x9404).
-        """
-        self.router_alert = value
-        self.router_alert_enabled = True
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Send an IGMPv2 packet")
+    parser.add_argument("--gaddr", type=str, default="224.0.0.1", help="Group address")
+    parser.add_argument("--src_ip", type=str, default="192.168.1.10", help="Source IP address")
+    parser.add_argument("--type", type=lambda x: int(x, 0), default=0x11, help="Type of IGMP message")
+    parser.add_argument("--enable_router_alert", action="store_true", help="Enable Router Alert option")
+    parser.add_argument("--iface", type=str, default="eth0", help="Network interface to send the packet")
+    parser.add_argument("--count", type=int, default=1, help="Number of packets to send")
+    parser.add_argument("--interval", type=int, default=0, help="Interval between packets")
+
+    args = parser.parse_args()
+
+    igmp_packet = IGMPv2(gaddr=args.gaddr, src_ip=args.src_ip, type=args.type)
+    if args.enable_router_alert:
+        igmp_packet.enable_router_alert()
+    igmp_packet.send(iface=args.iface, count=args.count, interval=args.interval)
