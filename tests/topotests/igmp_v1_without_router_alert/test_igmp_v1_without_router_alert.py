@@ -91,7 +91,7 @@ def test_send_igmp_v1_without_router_alert():
     logger.info(output)
 
 def test_send_igmp_v1_with_router_alert():
-    """Send IGMPv1 packet without Router Alert"""
+    """Send IGMPv1 packet with Router Alert"""
 
     tgen = get_topogen()
 
