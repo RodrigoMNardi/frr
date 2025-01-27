@@ -72,18 +72,12 @@ def test_send_igmp_v1():
     tgen.gears['r1'].vtysh_cmd("debug igmp")
     tgen.gears['r1'].vtysh_cmd("debug pim")
 
-    host_obj, interface_name = tgen.gears["r1"].links['r1-eth0']
-
-    logger.info(tgen.gears['r1'].vtysh_cmd("show interfaces"))
-    logger.info(get_test_logdir())
-
     logger.info("Sending IGMPv1 packet without Router Alert")
-    igmp_packet = IGMPv1(gaddr="224.1.3.2", type=0x12, src_ip=HOST_IP)
-    igmp_packet.enable_router_alert()
+    cmd = f"--src_ip {HOST_IP} --gaddr '224.1.2.3' --iface 'h1-eth0' --count 3"
+    tgen.gears["h1"].run(f"python {CWD}/../../packets/igmp/igmp_v1.py {cmd}")
 
-    sleep(40)
+    sleep(3)
 
-    igmp_packet.send(iface=interface_name.split("-")[1], count=5)
     logger.info("IGMPv1 packet sent successfully")
 
     logger.info(tgen.gears['r1'].vtysh_cmd("show ip igmp groups"))
