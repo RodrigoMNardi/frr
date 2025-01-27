@@ -2,7 +2,7 @@
 #
 #  SPDX-License-Identifier: BSD-2-Clause
 #
-#  igmp_v1_without_router_alert.py
+#  igmp_v1_router_alert.py
 #  Part of NetDEF CI System
 #
 #  Copyright (c) 2025 by
