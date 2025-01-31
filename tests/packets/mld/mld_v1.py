@@ -9,62 +9,82 @@
 #  Network Device Education Foundation, Inc. ("NetDEF")
 #
 
-"""
-MLDv1 Packet Class
+import argparse
 
-This module defines the MLDv1 class, which represents an MLDv1 packet. The class is built using the Scapy library and allows for the creation and manipulation of MLDv1 packets, including the optional addition of a Router Alert field.
+from scapy.fields import BitField, XShortField, IP6Field, ByteField, ByteEnumField, ShortField
+from scapy.layers.inet6 import icmp6types
 
-Classes:
-    MLDv1: Represents an MLDv1 packet.
+from mld import MLD
 
-Usage Example:
-    from scapy.all import sendp
-    from mld_v1 import MLDv1
-
-    # Create an MLDv1 packet without Router Alert
-    mld_packet = MLDv1(gaddr="ff02::1")
-    mld_packet.show()
-
-    # Enable Router Alert
-    mld_packet.enable_router_alert()
-    mld_packet.show()
-
-    # Send the packet on the network interface (e.g., eth0)
-    sendp(mld_packet, iface="eth0")
-"""
-
-from scapy.all import Packet, ByteField, ShortField, IP6Field, ConditionalField
-
-class MLDv1(Packet):
+class MLDv1(MLD):
     """
-    Represents an MLDv1 packet.
+    MLDv1 is a class representing an MLD (Multicast Listener Discovery) version 1 packet.
 
     Attributes:
-        type (int): The type of the MLD message (default is 0x82).
-        max_resp_time (int): The maximum response time (default is 0).
-        checksum (int): The checksum of the packet (default is None).
-        gaddr (str): The group address (default is "ff02::1").
-        router_alert (int): The Router Alert field (default is 0x0, conditional).
+        type (int): Type of MLD message, default is 0x11.
+        code (int): Code of MLD message, default is 0.
+        cksum (int): Checksum of the packet, default is None.
+        mrd (int): Maximum response delay, default is 0.
+        reserved (int): Reserved field, default is 0.
+        mladdr (str): Multicast address, default is "::".
+        src_ip (str): Source IP address, default is "fe80::1".
+        dst_ip (str): Destination IP address, default is "fe80::2".
+        options (list): List of options, default is an empty list.
 
     Methods:
-        enable_router_alert(value=0x94):
-            Enables the Router Alert field with the specified value.
+        __init__(self, type=0x11, code=0, max_response_delay=0, chksum=None, gaddr="ff02::1", src_ip="fe80::1", dst_ip="fe80::2", *args, **kwargs):
+            Initializes an MLDv1 packet with the given parameters.
+
+        send(self, iface="eth0", count=1, interval=0):
+            Sends the MLDv1 packet on the specified network interface.
     """
+
     name = "MLDv1"
     fields_desc = [
-        ByteField("type", 0x82),
-        ByteField("max_resp_time", 0),
-        ShortField("checksum", None),
-        IP6Field("gaddr", "ff02::1"),
-        ConditionalField(ByteField("router_alert", 0x0), lambda pkt: hasattr(pkt, 'router_alert_enabled') and pkt.router_alert_enabled)
+        ByteEnumField("type", 130, icmp6types),
+        ByteField("code", 0),
+        XShortField("cksum", None),
+        ShortField("mrd", 0),
+        ShortField("reserved", 0),
+        IP6Field("mladdr", "::")
     ]
 
-    def enable_router_alert(self, value=0x05):
-        """
-        Enables the Router Alert field with the specified value.
+    def __init__(self, type=0x11, code=0, max_response_delay=0, chksum=None, gaddr="ff02::1", src_ip="fe80::1", dst_ip="ff02::fb", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.type = type
+        self.code = code
+        self.mrd = max_response_delay
+        self.cksum = chksum
+        self.reserved = 0
+        self.mladdr = gaddr
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.options = []
 
-        Args:
-            value (int): The value to set for the Router Alert field (default is 0x05).
-        """
-        self.router_alert = value
-        self.router_alert_enabled = True
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Send an MLDv1 packet")
+    parser.add_argument("--type", type=lambda x: int(x, 0), default=0x83, help="Type of MLD message")
+    parser.add_argument("--code", type=int, default=0, help="Code of MLD message")
+    parser.add_argument("--max_response_delay", type=int, default=10, help="Maximum response delay")
+    parser.add_argument("--chksum", type=int, default=None, help="Checksum of the packet")
+    parser.add_argument("--gaddr", type=str, default="ff02::1", help="Group address")
+    parser.add_argument("--src_ip", type=str, default="fe80::1", help="Source IP address")
+    parser.add_argument("--dst_ip", type=str, default="ff02::fb", help="Destination IP address")
+    parser.add_argument("--enable_router_alert", action="store_true", help="Enable Router Alert option")
+    parser.add_argument("--iface", type=str, default="eth0", help="Network interface to send the packet")
+    parser.add_argument("--count", type=int, default=1, help="Number of packets to send")
+    parser.add_argument("--interval", type=int, default=0, help="Interval between packets")
+
+    args = parser.parse_args()
+
+    igmp_packet = MLDv1(gaddr=args.gaddr,
+                        src_ip=args.src_ip,
+                        dst_ip=args.dst_ip,
+                        type=args.type,
+                        code=args.code,
+                        max_response_delay=args.max_response_delay)
+
+    if args.enable_router_alert:
+        igmp_packet.enable_router_alert()
+
+    igmp_packet.send(iface=args.iface, count=args.count, interval=args.interval)
