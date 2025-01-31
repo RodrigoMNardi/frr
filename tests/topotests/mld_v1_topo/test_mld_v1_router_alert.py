@@ -111,7 +111,7 @@ def test_send_mld_v1_with_router_alert():
 
     logger.info("Sending MLDv1 packet without Router Alert")
 
-    cmd = (f"--src_ip {link_local} --dst_ip {link_local} --gaddr {GADDR} "
+    cmd = (f"--src_ip {link_local} --dst_ip {link_local} --gaddr {GADDR_RA} "
            f"--iface 'h1-eth0' --count 3 --type 0x83 --enable_router_alert")
 
     tgen.gears["h1"].run(f"python {CWD}/../../packets/mld/mld_v1.py {cmd}")
