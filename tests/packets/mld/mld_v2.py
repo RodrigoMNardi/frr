@@ -82,13 +82,13 @@ class MLDv2(MLD):
         self.records_number = len(records)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Send an MLDv1 packet")
+    parser = argparse.ArgumentParser(description="Send an MLDv2 packet")
     parser.add_argument("--type", type=int, default=143, help="Type of MLD message")
     parser.add_argument("--code", type=int, default=0, help="Code of MLD message")
     parser.add_argument("--chksum", type=int, default=None, help="Checksum of the packet")
     parser.add_argument("--src_ip", type=str, default="fe80::1", help="Source IP address")
     parser.add_argument("--dst_ip", type=str, default="ff02::fb", help="Destination IP address")
-    parser.add_argument("--record", type=lambda s: [item for item in s.split(',')], default=[], help="Multicast Address Records")
+    parser.add_argument("--record", action='append', default=[], help="Multicast Address Records")
     parser.add_argument("--enable_router_alert", action="store_true", help="Enable Router Alert option")
     parser.add_argument("--iface", type=str, default="eth0", help="Network interface to send the packet")
     parser.add_argument("--count", type=int, default=1, help="Number of packets to send")
