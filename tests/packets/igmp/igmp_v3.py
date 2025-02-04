@@ -44,8 +44,7 @@ class IGMPv3(IGMP):
         self.gaddr = gaddr
 
         for index, record in enumerate(records):
-            entry = IGMPv3gr(numsrc=1, srcaddrs=[record], maddr=maddr[index], rtype=rtype)
-            self.records.append(entry)
+            self.records.append(IGMPv3gr(numsrc=1, srcaddrs=[record], maddr=maddr[index], rtype=rtype))
 
         self.records_number = len(records)
 
