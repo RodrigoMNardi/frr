@@ -88,8 +88,6 @@ def test_send_igmp_v1_without_router_alert():
 
     assert GADDR in output, f"Expected {GADDR} to be in the output"
 
-    logger.info(output)
-
 def test_send_igmp_v1_with_router_alert():
     """Send IGMPv1 packet with Router Alert"""
 
@@ -112,8 +110,6 @@ def test_send_igmp_v1_with_router_alert():
     output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
 
     assert GADDR_RA in output, f"Expected {GADDR_RA} to be in the output"
-
-    logger.info(output)
 
 def test_igmp_v1_interface_router_alert_packet_without_router_alert():
     """Send IGMPv1 packet without Router Alert"""
@@ -144,8 +140,6 @@ def test_igmp_v1_interface_router_alert_packet_without_router_alert():
 
     assert GADDR_RA_ENABLED not in output, f"Expected {GADDR_RA_ENABLED} to be in the output"
 
-    logger.info(output)
-
 def test_igmp_v1_interface_router_alert_packet_with_router_alert():
     """Send IGMPv1 packet without Router Alert"""
 
@@ -174,8 +168,6 @@ def test_igmp_v1_interface_router_alert_packet_with_router_alert():
     output = tgen.gears['r1'].vtysh_cmd("show ip igmp groups")
 
     assert GADDR_RA_ENABLED in output, f"Expected {GADDR_RA_ENABLED} to be in the output"
-
-    logger.info(output)
 
 def enable_debugging():
     tgen = get_topogen()
