@@ -32,7 +32,7 @@ class IGMPv3(IGMP):
     ]
 
     def __init__(self, version=1, type=0x22, max_resp_time=10,
-                 chksum=None, records=[], maddr=[], rtype=1, gaddr="224.0.0.1",
+                 chksum=None, records=[], maddrs=[], rtype=1, gaddr="224.0.0.22",
                  src_ip="192.168.100.1", *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = version
@@ -43,15 +43,20 @@ class IGMPv3(IGMP):
         self.options = []
         self.gaddr = gaddr
 
-        for index, record in enumerate(records):
-            self.records.append(IGMPv3gr(numsrc=1, srcaddrs=[record], maddr=maddr[index], rtype=rtype))
+        num_maddrs = len(maddrs)
+        grouped_sources = [[] for _ in range(num_maddrs)]
+        for index, source in enumerate(records):
+            grouped_sources[index % num_maddrs].append(source)
 
-        self.records_number = len(records)
+        for maddr, sources in zip(maddrs, grouped_sources):
+            self.records.append(IGMPv3gr(numsrc=len(sources), srcaddrs=sources, maddr=maddr, rtype=rtype))
+
+        self.records_number = num_maddrs
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send an IGMPv3 packet")
-    parser.add_argument("--gaddr", type=str, default="224.0.0.1", help="Destination IP address")
+    parser.add_argument("--gaddr", type=str, default="224.0.0.22", help="Destination IP address")
     parser.add_argument("--record", action='append', default=[], help="Multicast Address Records")
     parser.add_argument("--maddr", action='append', default=[], help="Multicast Address")
     parser.add_argument("--src_ip", type=str, default="192.168.1.10", help="Source IP address")
@@ -65,7 +70,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     igmp_packet = IGMPv3(records=args.record,
-                         maddr=args.maddr,
+                         maddrs=args.maddr,
                          src_ip=args.src_ip,
                          type=args.type,
                          gaddr=args.gaddr,
