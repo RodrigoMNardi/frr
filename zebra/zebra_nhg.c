@@ -66,6 +66,14 @@ static void depends_decrement_free(struct nhg_connected_tree_head *head);
 static struct nhg_backup_info *
 nhg_backup_copy(const struct nhg_backup_info *orig);
 
+const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe)
+{
+	if (nhe->afi == AFI_UNSPEC)
+		return "No AFI";
+
+	return afi2str(nhe->afi);
+}
+
 /* Helper function for getting the next allocatable ID */
 static uint32_t nhg_get_next_id(void)
 {
@@ -572,8 +580,7 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	/* Nexthops should be in-order, so we simply compare them in-place */
 	for (nexthop1 = nhe1->nhg.nexthop, nexthop2 = nhe2->nhg.nexthop;
 	     nexthop1 && nexthop2;
-	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
-
+	     nexthop1 = nexthop_next(nexthop1), nexthop2 = nexthop_next(nexthop2)) {
 		if (!nhg_compare_nexthops(nexthop1, nexthop2))
 			return false;
 	}
@@ -608,8 +615,7 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	for (nexthop1 = nhe1->backup_info->nhe->nhg.nexthop,
 	     nexthop2 = nhe2->backup_info->nhe->nhg.nexthop;
 	     nexthop1 && nexthop2;
-	     nexthop1 = nexthop1->next, nexthop2 = nexthop2->next) {
-
+	     nexthop1 = nexthop_next(nexthop1), nexthop2 = nexthop_next(nexthop2)) {
 		if (!nhg_compare_nexthops(nexthop1, nexthop2))
 			return false;
 	}
@@ -1163,6 +1169,28 @@ static void zebra_nhg_handle_uninstall(struct nhg_hash_entry *nhe)
 	zebra_nhg_free(nhe);
 }
 
+static void nhg_handle_install_one(struct nhg_connected *node)
+{
+	struct nhg_connected *rb_node_indirect_dep = NULL;
+
+	frr_each_safe (nhg_connected_tree, &node->nhe->nhg_dependents,
+		       rb_node_indirect_dep) {
+		SET_FLAG(rb_node_indirect_dep->nhe->flags,
+			 NEXTHOP_GROUP_REINSTALL);
+
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s nh id %u (flags 0x%x) associated dependents NHG %pNG (flags 0x%x) Re-install",
+				   __func__, node->nhe->id,
+				   node->nhe->flags,
+				   rb_node_indirect_dep->nhe,
+				   rb_node_indirect_dep->nhe->flags);
+
+		zebra_nhg_install_kernel(rb_node_indirect_dep->nhe,
+					 ZEBRA_ROUTE_MAX);
+	}
+
+}
+
 static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 {
 	/* Update validity of groups depending on it */
@@ -1172,6 +1200,11 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
 		/* install dependent NHG into kernel */
 		if (install) {
+			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+			    CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+				nhg_handle_install_one(rb_node_dep);
+			}
+
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
@@ -1678,7 +1711,7 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 				   nhe->nhg.nexthop);
 	}
 
-	EVENT_OFF(nhe->timer);
+	event_cancel(&nhe->timer);
 
 	zebra_nhg_free_members(nhe);
 
@@ -1703,7 +1736,7 @@ void zebra_nhg_hash_free(void *p)
 				   nhe->nhg.nexthop);
 	}
 
-	EVENT_OFF(nhe->timer);
+	event_cancel(&nhe->timer);
 
 	nexthops_free(nhe->nhg.nexthop);
 
@@ -1788,7 +1821,7 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 	nhe->refcnt++;
 
 	if (event_is_scheduled(nhe->timer)) {
-		EVENT_OFF(nhe->timer);
+		event_cancel(&nhe->timer);
 		nhe->refcnt--;
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 	}
@@ -1932,10 +1965,9 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 						   &nexthop->nh_srv6
 							    ->seg6local_ctx);
 		if (nexthop->nh_srv6->seg6_segs)
-			nexthop_add_srv6_seg6(resolved_hop,
-					      &nexthop->nh_srv6->seg6_segs->seg[0],
-					      nexthop->nh_srv6->seg6_segs
-						      ->num_segs);
+			nexthop_add_srv6_seg6(resolved_hop, &nexthop->nh_srv6->seg6_segs->seg[0],
+					      nexthop->nh_srv6->seg6_segs->num_segs,
+					      nexthop->nh_srv6->seg6_segs->encap_behavior);
 	}
 
 	resolved_hop->rparent = nexthop;
@@ -2782,8 +2814,14 @@ static bool zebra_nhg_set_valid_if_active(struct nhg_hash_entry *nhe)
 	}
 
 	/* should be fully resolved singleton at this point */
-	if (CHECK_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-		valid = true;
+	if (CHECK_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+		struct interface *ifp = if_lookup_by_index(nhe->nhg.nexthop->ifindex, nhe->vrf_id);
+
+		if (!ifp || !if_is_operative(ifp))
+			valid = false;
+		else
+			valid = true;
+	}
 
 done:
 	if (valid)
@@ -2932,6 +2970,68 @@ static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
 	return curr_active;
 }
 
+void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t vrf_id)
+{
+	struct nhg_hash_entry *curr_nhe, *new_nhe;
+	afi_t rt_afi = family2afi(rn->p.family);
+	struct nexthop *nexthop;
+
+	re->vrf_id = vrf_id;
+
+	/* Make a local copy of the existing nhe, so we don't work on/modify
+	 * the shared nhe.
+	 */
+	curr_nhe = zebra_nhe_copy(re->nhe, re->nhe->id);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p nhe %p (%pNG), curr_nhe %p", __func__, re, re->nhe, re->nhe,
+			   curr_nhe);
+
+	/* Clear the existing id, if any: this will avoid any confusion
+	 * if the id exists, and will also force the creation
+	 * of a new nhe reflecting the changes we may make in this local copy.
+	 */
+	curr_nhe->id = 0;
+
+	curr_nhe->vrf_id = vrf_id;
+	for (ALL_NEXTHOPS(curr_nhe->nhg, nexthop)) {
+		if (!nexthop->ifindex)
+			/* change VRF ID of nexthop without interfaces
+			 * (eg. blackhole)
+			 */
+			nexthop->vrf_id = vrf_id;
+	}
+
+	if (zebra_nhg_get_backup_nhg(curr_nhe)) {
+		for (ALL_NEXTHOPS(curr_nhe->backup_info->nhe->nhg, nexthop)) {
+			if (!nexthop->ifindex)
+				/* change VRF ID of nexthop without interfaces
+				 * (eg. blackhole)
+				 */
+				nexthop->vrf_id = vrf_id;
+		}
+	}
+
+	/*
+	 * Ref or create an nhe that matches the current state of the
+	 * nexthop(s).
+	 */
+	new_nhe = zebra_nhg_rib_find_nhe(curr_nhe, rt_afi);
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) => new_nhe %p (%pNG)", __func__, re,
+			   re->nhe, re->nhe, new_nhe, new_nhe);
+
+	route_entry_update_nhe(re, new_nhe);
+
+	/*
+	 * Do not need the old / copied nhe anymore since it
+	 * was either copied over into a new nhe or not
+	 * used at all.
+	 */
+	zebra_nhg_free(curr_nhe);
+}
+
 /*
  * This function takes the start of two comparable nexthops from two different
  * nexthop groups and walks them to see if they can be considered the same
@@ -2947,13 +3047,27 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 
 	while (nhop && old_nhop) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: %pRN Comparing %pNHvv(%u) to old: %pNHvv(%u)",
-				   __func__, rn, nhop, nhop->flags, old_nhop,
-				   old_nhop->flags);
+			zlog_debug("%s: %pRN Comparing %pNHvv(%u) ACTIVE: %d to old: %pNHvv(%u) ACTIVE: %d nexthop same: %d",
+				   __func__, rn, nhop, nhop->flags,
+				   CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE), old_nhop,
+				   old_nhop->flags, CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE),
+				   nexthop_same_no_ifindex(nhop, old_nhop));
 		if (!CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s: %pRN Old is not active going to the next one",
 					   __func__, rn);
+
+			/*
+			 * If the new nexthop is not active and the old nexthop is also not active,
+			 * then we know that we can skip both the old and new nexthops.
+			 */
+			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE) &&
+			    nexthop_same_no_ifindex(nhop, old_nhop)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: %pRN new is not active going to the next one",
+						   __func__, rn);
+				nhop = nhop->next;
+			}
 			old_nhop = old_nhop->next;
 			continue;
 		}
@@ -3752,7 +3866,7 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 
 			/* Dont call the dec API, we dont want to uninstall the ID */
 			old->refcnt = 0;
-			EVENT_OFF(old->timer);
+			event_cancel(&old->timer);
 			zebra_nhg_free(old);
 			old = NULL;
 		}

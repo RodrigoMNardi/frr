@@ -46,7 +46,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(2, 0, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(2, 1, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
@@ -3602,8 +3602,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)))
 			return ENOENT;
-
-		re->nhe_installed_id = nhe->id;
 	}
 #endif /* HAVE_NETLINK */
 
@@ -6210,8 +6208,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 
 		in_max = atomic_load_explicit(&prov->dp_in_max,
 					      memory_order_relaxed);
-		out = atomic_load_explicit(&prov->dp_out_counter,
-					   memory_order_relaxed);
+		out = dplane_provider_out_ctx_queue_len(prov);
 
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
@@ -6588,6 +6585,14 @@ int dplane_provider_work_ready(void)
 	}
 
 	return AOK;
+}
+
+/*
+ * Enqueue a context list to zebra main.
+ */
+void dplane_provider_enqueue_ctx_list_to_zebra(struct dplane_ctx_list_head *batch_list)
+{
+	(zdplane_info.dg_results_cb)(batch_list);
 }
 
 /*
@@ -7324,8 +7329,8 @@ static void dplane_check_shutdown_status(struct event *event)
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
 		if (zdplane_info.dg_master) {
-			EVENT_OFF(zi->t_read);
-			EVENT_OFF(zi->t_request);
+			event_cancel(&zi->t_read);
+			event_cancel(&zi->t_request);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);
@@ -7528,6 +7533,16 @@ static void dplane_thread_loop(struct event *event)
 		if (!zdplane_info.dg_run)
 			break;
 
+		/*
+		 * The yield should only happen after a bit of work has been
+		 * done but before we pull any new work off any provider
+		 * queue to continue looping.  This is a safe spot to
+		 * do so.
+		 */
+		if (event_should_yield(event)) {
+			reschedule = true;
+			break;
+		}
 		/* Locate next provider */
 		next_prov = dplane_prov_list_next(&zdplane_info.dg_providers,
 						  prov);
@@ -7591,11 +7606,6 @@ static void dplane_thread_loop(struct event *event)
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("dplane dequeues %d completed work from provider %s",
 				   counter, dplane_provider_get_name(prov));
-
-		if (event_should_yield(event)) {
-			reschedule = true;
-			break;
-		}
 
 		/* Locate next provider */
 		prov = next_prov;
@@ -7698,7 +7708,10 @@ static void zebra_dplane_init_internal(void)
 
 	dplane_prov_list_init(&zdplane_info.dg_providers);
 
-	dplane_ctx_list_init(&zdplane_info.dg_update_list);
+	frr_with_mutex (&zdplane_info.dg_mutex) {
+		dplane_ctx_list_init(&zdplane_info.dg_update_list);
+	}
+
 	zns_info_list_init(&zdplane_info.dg_zns_list);
 
 	zdplane_info.dg_updates_per_cycle = DPLANE_DEFAULT_NEW_WORK;

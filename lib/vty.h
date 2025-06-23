@@ -7,16 +7,6 @@
 #define _ZEBRA_VTY_H
 
 #include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 
 #include "frrevent.h"
 #include "log.h"
@@ -33,6 +23,7 @@ extern "C" {
 #endif
 
 struct json_object;
+struct frregex;
 
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
@@ -86,7 +77,7 @@ struct vty {
 
 	/* Output filer regex */
 	bool filter;
-	regex_t include;
+	struct frregex *include;
 
 	/* Line buffer */
 	struct buffer *lbuf;
@@ -428,11 +419,7 @@ extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
 extern bool mgmt_vty_read_configs(void);
 extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 				     bool implicit_commit);
-extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
-				       bool abort);
-extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
-				 Mgmtd__DatastoreId datastore,
-				 const char **xpath_list, int num_req);
+extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock);
 extern int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
 				      LYD_FORMAT result_type, uint8_t flags,
 				      uint8_t defaults, const char *xpath);
@@ -442,8 +429,7 @@ extern int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
 				  const char *data);
 extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
 				 const char *xpath, const char *data);
-extern int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-				    bool lock, bool scok);
+extern int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, int ret);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)

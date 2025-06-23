@@ -1965,11 +1965,15 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 				(*hook_add)(route);
 			route->flag = 0;
 		} else {
-			/* Redo the summaries as things might have changed */
+			/* Redo the summaries as things might have changed.
+			 * Note: Not strictly needed since we're called by
+			 * ospf6_spf_calculation_thread() which calls
+			 * ospf6_abr_task() anyway, but make it explicit.
+			 */
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-				zlog_debug("%s: Originate summary for route %s",
+				zlog_debug("%s: Schedule summary origination for route %s",
 					   __func__, buf);
-			ospf6_abr_originate_summary(route, oa->ospf6);
+			ospf6_schedule_abr_task(oa->ospf6);
 			route->flag = 0;
 		}
 	}
@@ -2194,9 +2198,15 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				zlog_info("%s: brouter %s appears via area %s",
 					  __func__, brouter_name, oa->name);
 
+			ospf6_route_lock(brouter);
 			/* newly added */
 			if (hook_add)
 				(*hook_add)(brouter);
+			if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_WAS_REMOVED)) {
+				ospf6_route_unlock(brouter);
+				brouter = NULL;
+			} else
+				ospf6_route_unlock(brouter);
 		} else {
 			if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(
 				    brouter_id)
@@ -2205,8 +2215,12 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				zlog_debug(
 					"brouter %s still exists via area %s",
 					brouter_name, oa->name);
-			/* But re-originate summaries */
-			ospf6_abr_originate_summary(brouter, oa->ospf6);
+			/* But re-originate summaries via ospf6_abr_task().
+			 * Note: Not strictly needed since we're called by
+			 * ospf6_spf_calculation_thread() which calls
+			 * ospf6_abr_task() anyway, but make it explicit.
+			 */
+			ospf6_schedule_abr_task(oa->ospf6);
 		}
 
 		if (brouter) {

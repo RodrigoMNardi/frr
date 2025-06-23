@@ -128,6 +128,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->gm_specific_query_max_response_time_dsec =
 		GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->gm_last_member_query_count = GM_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->gm_group_limit = UINT32_MAX;
+	pim_ifp->gm_source_limit = UINT32_MAX;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
@@ -143,8 +145,9 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	       pim_ifp->gm_default_query_interval);
 
 	pim_ifp->pim_enable = pim;
-	pim_ifp->pim_passive_enable = false;
+	pim_ifp->pim_mode = PIM_MODE_SPARSE;
 	pim_ifp->gm_enable = gm;
+	pim_ifp->gm_proxy = false;
 
 	pim_ifp->gm_join_list = NULL;
 	pim_ifp->static_group_list = NULL;
@@ -192,8 +195,17 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-	if (pim_ifp->gm_join_list)
+	if (pim_ifp->gm_join_list) {
 		pim_if_gm_join_del_all(ifp);
+		/*
+		 * Sometimes gm_join_del_all does not delete them all
+		 * and as such it's not actually freed.  Let's
+		 * just clean this up if it wasn't to prevent
+		 * the problem.
+		 */
+		if (pim_ifp->gm_join_list)
+			list_delete(&pim_ifp->gm_join_list);
+	}
 
 	if (pim_ifp->static_group_list)
 		pim_if_static_group_del_all(ifp);
@@ -216,6 +228,7 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->bfd_config.profile)
 		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 
+	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
@@ -1433,10 +1446,8 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 	}
 	listnode_delete(pim_ifp->gm_join_list, ij);
 	gm_join_free(ij);
-	if (listcount(pim_ifp->gm_join_list) < 1) {
+	if (listcount(pim_ifp->gm_join_list) < 1)
 		list_delete(&pim_ifp->gm_join_list);
-		pim_ifp->gm_join_list = 0;
-	}
 
 	return 0;
 }
@@ -1898,9 +1909,7 @@ static int pim_ifp_up(struct interface *ifp)
 	}
 
 #if PIM_IPV == 4
-	if (pim->autorp && pim->autorp->do_discovery && pim_ifp &&
-	    pim_ifp->pim_enable)
-		pim_autorp_add_ifp(ifp);
+	pim_autorp_add_ifp(ifp);
 #endif
 
 	pim_cand_addrs_changed();
@@ -2016,12 +2025,11 @@ void pim_pim_interface_delete(struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
-#if PIM_IPV == 4
-	if (pim_ifp->pim_enable)
-		pim_autorp_rm_ifp(ifp);
-#endif
-
 	pim_ifp->pim_enable = false;
+
+#if PIM_IPV == 4
+	pim_autorp_rm_ifp(ifp);
+#endif
 
 	pim_if_membership_clear(ifp);
 
@@ -2057,4 +2065,21 @@ void pim_gm_interface_delete(struct interface *ifp)
 
 	if (!pim_ifp->pim_enable)
 		pim_if_delete(ifp);
+}
+
+
+const char *pim_mod_str(enum pim_iface_mode mode)
+{
+	switch (mode) {
+	case PIM_MODE_SPARSE:
+		return "SPARSE";
+	case PIM_MODE_DENSE:
+		return "DENSE";
+	case PIM_MODE_SPARSE_DENSE:
+		return "SPARSE_DENSE";
+	case PIM_MODE_SSM:
+		return "SSM";
+	}
+
+	return "";
 }

@@ -18,6 +18,7 @@
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/interface.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -34,6 +35,8 @@ DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_USID_WLIB,
 		    "SRv6 uSID Wide LIB information");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID, "SRv6 SID");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_CTX, "SRv6 SID context");
+
+static struct zebra_srv6 g_srv6;
 
 /* Prototypes */
 static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
@@ -602,7 +605,6 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *tmp;
-	struct listnode *node;
 	struct zserv *client;
 
 	tmp = zebra_srv6_locator_lookup(locator->name);
@@ -622,13 +624,13 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	 * frequently than adding rib entries, so a broad to all zclients will
 	 * not degrade the overall performance of FRRouting.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_add(client, locator);
+	}
 }
 
 void zebra_srv6_locator_delete(struct srv6_locator *locator)
 {
-	struct listnode *n;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zserv *client;
 
@@ -643,8 +645,9 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_delete(client, locator);
+	}
 
 	listnode_delete(srv6->locators, locator);
 	srv6_locator_free(locator);
@@ -664,7 +667,6 @@ struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
 
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 {
-	struct listnode *node;
 	struct zserv *client;
 
 	/*
@@ -680,13 +682,13 @@ void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 	 * frequently than adding rib entries, so a broad to all zclients will
 	 * not degrade the overall performance of FRRouting.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_add(client, locator);
+	}
 }
 
 void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 {
-	struct listnode *n;
 	struct zserv *client;
 
 	/*
@@ -700,11 +702,10 @@ void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_delete(client, locator);
+	}
 }
-
-struct zebra_srv6 srv6;
 
 struct zebra_srv6 *zebra_srv6_get_default(void)
 {
@@ -714,11 +715,11 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 
 	if (first_execution) {
 		first_execution = false;
-		srv6.locators = list_new();
+		g_srv6.locators = list_new();
 
 		/* Initialize list of SID formats */
-		srv6.sid_formats = list_new();
-		srv6.sid_formats->del = delete_srv6_sid_format;
+		g_srv6.sid_formats = list_new();
+		g_srv6.sid_formats->del = delete_srv6_sid_format;
 
 		/* Create SID format `usid-f3216` */
 		format_usidf3216 = create_srv6_sid_format_usid_f3216();
@@ -729,14 +730,14 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 		srv6_sid_format_register(format_uncompressed);
 
 		/* Init list to store SRv6 SIDs */
-		srv6.sids = list_new();
-		srv6.sids->del = delete_zebra_srv6_sid_ctx;
+		g_srv6.sids = list_new();
+		g_srv6.sids->del = delete_zebra_srv6_sid_ctx;
 
 		/* Init list to store SRv6 SID blocks */
-		srv6.sid_blocks = list_new();
-		srv6.sid_blocks->del = delete_zebra_srv6_sid_block;
+		g_srv6.sid_blocks = list_new();
+		g_srv6.sid_blocks->del = delete_zebra_srv6_sid_block;
 	}
-	return &srv6;
+	return &g_srv6;
 }
 
 /**
@@ -1235,7 +1236,7 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 				zlog_warn("%s: function %u is outside ELIB [%u/%u] and EWLIB alloc ranges [%u/%u]",
 					  __func__, sid_func, elib_start,
 					  elib_end, ewlib_start, ewlib_end);
-				return -1;
+				return false;
 			}
 		} else if (format->type == SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
 			uint32_t explicit_start =
@@ -1394,7 +1395,7 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			    dynamic_end) {
 				zlog_warn("%s: SRv6: Warning, SRv6 SID Dynamic alloc space is depleted",
 					  __func__);
-				return NULL;
+				return false;
 			}
 
 			/*
@@ -1547,9 +1548,26 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 	}
 
 	if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
-		zlog_err("%s: invalid SM request arguments: explicit SID allocation not allowed for End/uN behavior",
-			 __func__);
-		return -1;
+		zctx = zebra_srv6_sid_ctx_alloc();
+		zctx->ctx = *ctx;
+
+		*sid = zebra_srv6_sid_alloc(zctx, sid_value, locator, block, sid_func,
+					    SRV6_SID_ALLOC_MODE_EXPLICIT);
+		if (!(*sid)) {
+			flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
+				 "%s: failed to create SRv6 SID %s (%pI6)", __func__,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value);
+			return -1;
+		}
+		(*sid)->ctx = zctx;
+		zctx->sid = *sid;
+		listnode_add(srv6->sids, zctx);
+
+		if (IS_ZEBRA_DEBUG_SRV6)
+			zlog_debug("%s: allocated explicit SRv6 SID %pI6 for context %s", __func__,
+				   &(*sid)->value, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+		return 1;
 	}
 
 	/* Allocate an explicit SID function for the SID */
@@ -1728,6 +1746,13 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 	int ret = -1;
 	struct srv6_locator *locator;
 	char buf[256];
+	struct nhg_connected *rb_node_dep = NULL;
+	struct listnode *node;
+	struct nexthop *nexthop;
+	struct nbr_connected *nc;
+	bool found = false;
+	struct interface *ifp;
+	struct zebra_if *zebra_if;
 
 	enum srv6_sid_alloc_mode alloc_mode =
 		(sid_value) ? SRV6_SID_ALLOC_MODE_EXPLICIT
@@ -1737,6 +1762,44 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
+
+	if (ctx->ifindex != 0 && IPV6_ADDR_SAME(&ctx->nh6, &in6addr_any)) {
+		ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
+		if (!ifp) {
+			zlog_err("%s: interface %u does not exist", __func__, ctx->ifindex);
+			return -1;
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nc))
+			if (nc->address && nc->address->family == AF_INET6 &&
+			    IN6_IS_ADDR_LINKLOCAL(&nc->address->u.prefix6)) {
+				ctx->nh6 = nc->address->u.prefix6;
+				found = true;
+				break;
+			}
+
+		if (!found) {
+			zebra_if = ifp->info;
+
+			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
+					/* skip non link-local addresses */
+					if (!IPV6_ADDR_SAME(&nexthop->gate.ipv6, &in6addr_any)) {
+						ctx->nh6 = nexthop->gate.ipv6;
+						found = true;
+						break;
+					}
+				}
+				if (found)
+					break;
+			}
+			if (!found) {
+				zlog_err("%s: cannot get SID, interface (ifindex %u) not found",
+					 __func__, ctx->ifindex);
+				return -1;
+			}
+		}
+	}
 
 	if (alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
 		/*
@@ -2356,6 +2419,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client,
 	struct listnode *node, *nnode;
 	char buf[256];
 	const char *locator_name = NULL;
+	struct in6_addr sid_value = {};
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
@@ -2364,9 +2428,11 @@ static int srv6_manager_release_sid_internal(struct zserv *client,
 	/* Lookup Zebra SID context and release it */
 	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, zctx))
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
-			if (zctx->sid && zctx->sid->locator)
-				locator_name =
-					(const char *)zctx->sid->locator->name;
+			if (zctx->sid) {
+				if (zctx->sid->locator)
+					locator_name = (const char *)zctx->sid->locator->name;
+				sid_value = zctx->sid->value;
+			}
 			ret = release_srv6_sid(client, zctx);
 			break;
 		}
@@ -2376,10 +2442,10 @@ static int srv6_manager_release_sid_internal(struct zserv *client,
 			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 
 	if (ret == 0)
-		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0, locator_name,
+		zsend_srv6_sid_notify(client, ctx, &sid_value, 0, 0, locator_name,
 				      ZAPI_SRV6_SID_RELEASED);
 	else
-		zsend_srv6_sid_notify(client, ctx, NULL, 0, 0, locator_name,
+		zsend_srv6_sid_notify(client, ctx, &sid_value, 0, 0, locator_name,
 				      ZAPI_SRV6_SID_FAIL_RELEASE);
 
 	return ret;
@@ -2392,51 +2458,51 @@ void zebra_srv6_terminate(void)
 	struct zebra_srv6_sid_block *block;
 	struct zebra_srv6_sid_ctx *sid_ctx;
 
-	if (srv6.locators) {
-		while (listcount(srv6.locators)) {
-			locator = listnode_head(srv6.locators);
+	if (g_srv6.locators) {
+		while (listcount(g_srv6.locators)) {
+			locator = listnode_head(g_srv6.locators);
 
-			listnode_delete(srv6.locators, locator);
+			listnode_delete(g_srv6.locators, locator);
 			srv6_locator_free(locator);
 		}
 
-		list_delete(&srv6.locators);
+		list_delete(&g_srv6.locators);
 	}
 
 	/* Free SRv6 SIDs */
-	if (srv6.sids) {
-		while (listcount(srv6.sids)) {
-			sid_ctx = listnode_head(srv6.sids);
+	if (g_srv6.sids) {
+		while (listcount(g_srv6.sids)) {
+			sid_ctx = listnode_head(g_srv6.sids);
 
-			listnode_delete(srv6.sids, sid_ctx);
+			listnode_delete(g_srv6.sids, sid_ctx);
 			zebra_srv6_sid_ctx_free(sid_ctx);
 		}
 
-		list_delete(&srv6.sids);
+		list_delete(&g_srv6.sids);
 	}
 
 	/* Free SRv6 SID blocks */
-	if (srv6.sid_blocks) {
-		while (listcount(srv6.sid_blocks)) {
-			block = listnode_head(srv6.sid_blocks);
+	if (g_srv6.sid_blocks) {
+		while (listcount(g_srv6.sid_blocks)) {
+			block = listnode_head(g_srv6.sid_blocks);
 
-			listnode_delete(srv6.sid_blocks, block);
+			listnode_delete(g_srv6.sid_blocks, block);
 			zebra_srv6_sid_block_free(block);
 		}
 
-		list_delete(&srv6.sid_blocks);
+		list_delete(&g_srv6.sid_blocks);
 	}
 
 	/* Free SRv6 SID formats */
-	if (srv6.sid_formats) {
-		while (listcount(srv6.sid_formats)) {
-			format = listnode_head(srv6.sid_formats);
+	if (g_srv6.sid_formats) {
+		while (listcount(g_srv6.sid_formats)) {
+			format = listnode_head(g_srv6.sid_formats);
 
 			srv6_sid_format_unregister(format);
 			srv6_sid_format_free(format);
 		}
 
-		list_delete(&srv6.sid_formats);
+		list_delete(&g_srv6.sid_formats);
 	}
 }
 

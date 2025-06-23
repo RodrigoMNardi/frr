@@ -144,11 +144,8 @@ static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
 	struct vrf_irt_node *irt;
 
 	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt new - evpn instance not created yet");
+	if (!bgp_evpn)
 		return NULL;
-	}
 
 	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_IMPORT_RT,
 		      sizeof(struct vrf_irt_node));
@@ -170,11 +167,8 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 	struct bgp *bgp_evpn = NULL;
 
 	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt free - evpn instance not created yet");
+	if (!bgp_evpn)
 		return;
-	}
 
 	hash_release(bgp_evpn->vrf_import_rt_hash, irt);
 	list_delete(&irt->vrfs);
@@ -197,12 +191,8 @@ static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
 	struct vrf_irt_node tmp;
 
 	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(
-			EC_BGP_NO_DFLT,
-			"vrf import rt lookup - evpn instance not created yet");
+	if (!bgp_evpn)
 		return NULL;
-	}
 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
@@ -905,7 +895,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	bool esi_valid;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0) {
+	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: No zclient or zclient->sock exists",
 				   __func__);
@@ -923,7 +913,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 
 	if (!esi)
 		esi = zero_esi;
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(
@@ -984,7 +974,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	frrtrace(5, frr_bgp, evpn_mac_ip_zsend, add, vpn, p, remote_vtep_ip,
 		 esi);
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 /*
@@ -998,7 +988,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	struct stream *s;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0) {
+	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: No zclient or zclient->sock exists",
 				   __func__);
@@ -1014,7 +1004,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 		return ZCLIENT_SEND_SUCCESS;
 	}
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(
@@ -1041,7 +1031,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 
 	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 /*
@@ -1438,7 +1428,7 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 
 	/* Delete route entry in the VNI route table, caller to remove. */
-	bgp_path_info_delete(dest, old_local);
+	bgp_path_info_mark_for_delete(dest, old_local);
 }
 
 /*
@@ -2062,8 +2052,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_path_info_add(dest, tmp_pi);
 	} else {
 		tmp_pi = local_pi;
-		if (attrhash_cmp(tmp_pi->attr, attr)
-		    && !CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
+		if (!CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(tmp_pi->attr, attr))
 			route_change = 0;
 		else {
 			/*
@@ -2416,7 +2405,7 @@ void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Mark route for delete. */
 	if (tmp_pi)
-		bgp_path_info_delete(dest, tmp_pi);
+		bgp_path_info_mark_for_delete(dest, tmp_pi);
 }
 
 /* Delete EVPN type5 route */
@@ -2490,7 +2479,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, dest, &pi);
 	if (pi) {
-		bgp_path_info_delete(dest, pi);
+		bgp_path_info_mark_for_delete(dest, pi);
 		evpn_route_select_install(bgp, vpn, dest, pi);
 	}
 
@@ -2818,7 +2807,7 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		for (pi = bgp_dest_get_bgp_path_info(dest);
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 			bgp_evpn_remote_ip_hash_del(vpn, pi);
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			dest = bgp_path_info_reap(dest, pi);
 
 			assert(dest);
@@ -2829,7 +2818,7 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	     dest = bgp_route_next(dest)) {
 		for (pi = bgp_dest_get_bgp_path_info(dest);
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			dest = bgp_path_info_reap(dest, pi);
 
 			assert(dest);
@@ -3052,6 +3041,33 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 }
 
 /*
+ * According to draft-ietf-bess-evpn-ipvpn-interworking-13, strip the following
+ * extended communities for VRF routes imported from EVPN.
+ *
+ *   a. BGP Encapsulation extended communities.
+ *   b. Route Target extended communities.
+ *   c. All the extended communities of type EVPN.
+ */
+static bool bgp_evpn_filter_ecommunity(uint8_t *val, uint8_t size, void *arg)
+{
+	switch (val[0]) {
+	case ECOMMUNITY_ENCODE_AS:
+	case ECOMMUNITY_ENCODE_IP:
+	case ECOMMUNITY_ENCODE_AS4:
+		if (val[1] == ECOMMUNITY_ROUTE_TARGET)
+			return false;
+		break;
+	case ECOMMUNITY_ENCODE_OPAQUE:
+		if (val[1] == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP)
+			return false;
+		break;
+	case ECOMMUNITY_ENCODE_EVPN:
+		return false;
+	}
+	return true;
+}
+
+/*
  * Install route entry into the VRF routing table and invoke route selection.
  */
 static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
@@ -3072,6 +3088,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bool is_l3nhg_active = false;
 	char buf1[INET6_ADDRSTRLEN];
 	struct bgp_route_evpn *bre;
+	struct ecommunity *ecom;
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
@@ -3143,6 +3160,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	if (is_l3nhg_active)
 		SET_FLAG(attr.es_flags, ATTR_ES_L3_NHG_ACTIVE);
 
+	ecom = ecommunity_filter(bgp_attr_get_ecommunity(&attr), bgp_evpn_filter_ecommunity, NULL);
+	bgp_attr_set_ecommunity(&attr, ecom);
+
 	/* Check if route entry is already present. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->extra && pi->extra->vrfleak &&
@@ -3154,8 +3174,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, dest, &attr);
 		new_pi = true;
 	} else {
-		if (attrhash_cmp(pi->attr, &attr)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr)) {
 			bgp_dest_unlock_node(dest);
 			return 0;
 		}
@@ -3184,8 +3203,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	/* Gateway IP nexthop should be resolved */
 	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
-		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi,
-					    NULL, 0, NULL))
+		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi, NULL, 0, NULL, NULL))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
@@ -3278,8 +3296,8 @@ static int install_evpn_route_entry_in_vni_common(
 		 * install_evpn_route_entry_in_vni_mac() or
 		 * install_evpn_route_entry_in_vni_ip()
 		 */
-		if (attrhash_cmp(pi->attr, parent_pi->attr) &&
-		    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+		    attrhash_cmp(pi->attr, parent_pi->attr))
 			return 0;
 		/* The attribute has changed. */
 		/* Add (or update) attribute to hash. */
@@ -3358,7 +3376,7 @@ static int uninstall_evpn_route_entry_in_vni_common(
 	bgp_evpn_remote_ip_hash_del(vpn, pi);
 
 	/* Mark entry for deletion */
-	bgp_path_info_delete(dest, pi);
+	bgp_path_info_mark_for_delete(dest, pi);
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, dest, pi);
@@ -3562,7 +3580,7 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR);
 
 	/* Mark entry for deletion */
-	bgp_path_info_delete(dest, pi);
+	bgp_path_info_mark_for_delete(dest, pi);
 
 	/* Unlink path to evpn nexthop */
 	bgp_evpn_path_nh_del(bgp_vrf, pi);

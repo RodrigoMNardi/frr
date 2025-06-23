@@ -704,15 +704,15 @@ static int isis_te_export(uint8_t type, void *link_state)
 	switch (type) {
 	case LS_MSG_TYPE_NODE:
 		ls_vertex2msg(&msg, (struct ls_vertex *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(isis_zclient, &msg, NULL);
 		break;
 	case LS_MSG_TYPE_ATTRIBUTES:
 		ls_edge2msg(&msg, (struct ls_edge *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(isis_zclient, &msg, NULL);
 		break;
 	case LS_MSG_TYPE_PREFIX:
 		ls_subnet2msg(&msg, (struct ls_subnet *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(isis_zclient, &msg, NULL);
 		break;
 	default:
 		rc = -1;
@@ -1193,32 +1193,18 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 			"    |- Link Edge (Unknown) to destination vertex (%s)",
 			print_sys_hostname(id));
 
+	/* Then search if there is a reverse Edge to link them */
 	dst = ls_find_edge_by_destination(args->ted, edge->attributes);
 	if (dst) {
 		/* Attach remote link if not set */
-		if (edge->source && dst->destination == NULL) {
-			vertex = edge->source;
-			if (vertex->incoming_edges)
-				listnode_add_sort_nodup(vertex->incoming_edges,
-							dst);
+		if (dst->destination == NULL) {
+			listnode_add_sort_nodup(vertex->incoming_edges, dst);
 			dst->destination = vertex;
 		}
 		/* and destination vertex to this edge if not set */
-		if (dst->source && edge->destination == NULL) {
-			vertex = dst->source;
-			if (vertex->incoming_edges)
-				listnode_add_sort_nodup(vertex->incoming_edges,
-							edge);
-			edge->destination = vertex;
-		}
-	} else {
-		/* Search dst. Vertex by Extended Reach. ID if not found */
 		if (edge->destination == NULL) {
-			vertex = ls_find_vertex_by_key(args->ted,
-						       sysid_to_key(id));
-			if (vertex && vertex->incoming_edges)
-				listnode_add_sort_nodup(vertex->incoming_edges,
-							edge);
+			vertex = dst->source;
+			listnode_add_sort_nodup(vertex->incoming_edges, edge);
 			edge->destination = vertex;
 		}
 	}
@@ -1508,7 +1494,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	/* Clean remaining Orphan Edges or Subnets */
 	if (IS_EXPORT_TE(mta))
-		ls_vertex_clean(ted, vertex, zclient);
+		ls_vertex_clean(ted, vertex, isis_zclient);
 	else
 		ls_vertex_clean(ted, vertex, NULL);
 }
@@ -1667,7 +1653,7 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
 				te_debug("  |- Export TED from area %s",
 					 area->area_tag);
-				rc = ls_sync_ted(mta->ted, zclient, &dst);
+				rc = ls_sync_ted(mta->ted, isis_zclient, &dst);
 				if (rc != 0)
 					return rc;
 			}

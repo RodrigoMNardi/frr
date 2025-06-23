@@ -16,6 +16,7 @@ import os
 import sys
 from functools import partial
 import pytest
+import json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -62,6 +63,16 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
+
+
+def test_router_bgp_as_pretty():
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    output = tgen.gears["r1"].vtysh_cmd("show run")
+    assert "router bgp 99\n" in output, "router bgp 99 not found in show run"
 
 
 def test_vrf_route_leak_donna():
@@ -123,20 +134,7 @@ def test_vrf_route_leak_donna():
                 ],
             },
         ],
-        "172.16.101.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "unknown",
-                        "vrf": "Unknown",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(
@@ -195,20 +193,7 @@ def test_vrf_route_leak_eva():
                 "protocol": "connected",
             }
         ],
-        "172.16.101.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "unknown",
-                        "vrf": "Unknown",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(
@@ -302,34 +287,8 @@ interface EVA
 
     # Test DONNA VRF.
     expect = {
-        "10.0.1.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "EVA",
-                        "vrf": "EVA",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
-        "10.0.3.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "EVA",
-                        "vrf": "EVA",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "10.0.1.0/24": None,
+        "10.0.3.0/24": None,
     }
 
     test_func = partial(
@@ -421,20 +380,7 @@ def test_vrf_route_leak_donna_add_vrf_zita():
 
     # Test DONNA VRF.
     expect = {
-        "172.16.101.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "ZITA",
-                        "vrf": "ZITA",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(
@@ -505,6 +451,26 @@ def test_vrf_route_leak_donna_delete_vrf_zita():
     )
     result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_show_bgp_rd_json_output():
+    """
+    Test show bgp ipv4 vpn rd XX json output format is correct
+    """
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    ouput = r1.vtysh_cmd("show bgp ipv4 vpn json", isjson=True)
+
+    rds = ouput.get("routes", {}).get("routeDistinguishers", {}).keys()
+    assert len(rds) > 1, "Missing routeDistinguishers"
+
+    # will fail with json.decoder.JSONDecodeError if JSON is malformed
+    json.loads(r1.vtysh_cmd(f"show bgp ipv4 vpn rd {list(rds)[0]} json"))
 
 
 def test_memory_leak():

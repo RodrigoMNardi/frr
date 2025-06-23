@@ -643,10 +643,8 @@ static void ospf6_spf_calculation_thread(struct event *t)
 	/* External LSA calculation */
 	ospf6_ase_calculate_timer_add(ospf6);
 
-	if (ospf6_check_and_set_router_abr(ospf6)) {
-		ospf6_abr_defaults_to_stub(ospf6);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
-	}
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_abr_task(ospf6);
 
 	monotime(&end);
 	timersub(&end, &start, &runtime);
@@ -722,7 +720,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	EVENT_OFF(ospf6->t_spf_calc);
+	event_cancel(&ospf6->t_spf_calc);
 	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
 			     &ospf6->t_spf_calc);
 }

@@ -9,6 +9,7 @@
 #include "lib/mlag.h"
 
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -112,17 +113,24 @@ struct zebra_mlag_info {
 	struct event *t_write;
 };
 
+#define RTADV_TIMER_WHEEL_PERIOD_MS 1000
+#define RTADV_TIMER_WHEEL_SLOTS_NO  100
+#define ICMPV6_JOIN_TIMER_EXP_MS    100
+
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
 	struct event_loop *master;
 
+	/* Wheel to process V6 RA update */
+	struct timer_wheel *ra_wheel;
+
 	/* Lists of clients who have connected to us */
-	struct list *client_list;
+	struct zserv_client_list_head client_list;
 
 	/* List of clients in GR */
-	struct list *stale_client_list;
+	struct zserv_stale_client_list_head stale_client_list;
 
 	struct zebra_router_table_head tables;
 

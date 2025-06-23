@@ -236,13 +236,9 @@ static int frr_test_module_vrfs_vrf_ping(struct nb_cb_rpc_args *args)
 	return NB_OK;
 }
 
-/*
- * XPath: /frr-test-module:frr-test-module/c1value
- */
-static struct yang_data *
-frr_test_module_c1value_get_elem(struct nb_cb_get_elem_args *args)
+static struct yang_data *__return_null(struct nb_cb_get_elem_args *args)
 {
-	return yang_data_new_uint8(args->xpath, 21);
+	return NULL;
 }
 
 /*
@@ -253,14 +249,23 @@ static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb
 							struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	uint32_t value = 0xAB010203;
+	uint32_t value = htole32(0xAB010203);
 	LY_ERR err;
 
+	/* Note that this api expects 'value' to be in little-endian form */
 	err = lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
 			       LYD_NEW_PATH_UPDATE, NULL);
 	assert(err == LY_SUCCESS);
 
 	return NB_OK;
+}
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c3value
+ */
+static struct yang_data *frr_test_module_c3value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint8(args->xpath, 21);
 }
 
 /* clang-format off */
@@ -316,11 +321,19 @@ const struct frr_yang_module_info frr_test_module_info = {
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/c1value",
-			.cbs.get_elem = frr_test_module_c1value_get_elem,
+			.cbs.get_elem = __return_null,
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/c2cont/c2value",
 			.cbs.get = frr_test_module_c2cont_c2value_get,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c3value",
+			.cbs.get_elem = frr_test_module_c3value_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c4cont/c4value",
+			.cbs.get_elem = __return_null,
 		},
 		{
 			.xpath = NULL,

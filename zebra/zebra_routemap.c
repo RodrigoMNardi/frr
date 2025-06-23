@@ -959,10 +959,11 @@ route_set_src(void *rule, const struct prefix *prefix, void *object)
 /* set src compilation. */
 static void *route_set_src_compile(const char *arg)
 {
-	union g_addr src, *psrc;
+	union g_addr src = {}, *psrc;
 
-	if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1)
-	    || (inet_pton(AF_INET, arg, &src.ipv4) == 1)) {
+	/* IPv4 first, to ensure no garbage in the 12 unused bytes */
+	if ((inet_pton(AF_INET, arg, &src.ipv4) == 1) ||
+	    (inet_pton(AF_INET6, arg, &src.ipv6) == 1)) {
 		psrc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(union g_addr));
 		*psrc = src;
 		return psrc;
@@ -1182,7 +1183,7 @@ void zebra_route_map_set_delay_timer(uint32_t value)
 	if (!value && zebra_t_rmap_update) {
 		/* Event driven route map updates is being disabled */
 		/* But there's a pending timer. Fire it off now */
-		EVENT_OFF(zebra_t_rmap_update);
+		event_cancel(&zebra_t_rmap_update);
 		zebra_route_map_update_timer(NULL);
 	}
 }
@@ -1192,7 +1193,7 @@ void zebra_routemap_finish(void)
 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
 	zebra_rmap_update_timer = 0;
 	/* Thread off if any scheduled already */
-	EVENT_OFF(zebra_t_rmap_update);
+	event_cancel(&zebra_t_rmap_update);
 	route_map_finish();
 }
 
@@ -1294,7 +1295,7 @@ static void zebra_route_map_mark_update(const char *rmap_name)
 {
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (zebra_rmap_update_timer)
-		EVENT_OFF(zebra_t_rmap_update);
+		event_cancel(&zebra_t_rmap_update);
 
 	event_add_timer(zrouter.master, zebra_route_map_update_timer, NULL,
 			zebra_rmap_update_timer, &zebra_t_rmap_update);
