@@ -17,3 +17,4 @@ def calculate_checksum(packet):
     s = (s >> 16) + (s & 0xffff)
     s += s >> 16
     return ~s & 0xffff
+
