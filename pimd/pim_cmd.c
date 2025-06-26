@@ -3181,7 +3181,7 @@ DEFPY (clear_ip_mroute_count,
 	return clear_ip_mroute_count_command(vty, name);
 }
 
-DEFPY_YANG(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
+DEFPY(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
       "clear ip msdp peer A.B.C.D$peer [vrf WORD$vrfname]",
       CLEAR_STR
       IP_STR
@@ -3399,7 +3399,7 @@ DEFPY_NOSH (router_pim,
 	return CMD_SUCCESS;
 }
 
-DEFPY_YANG (no_router_pim,
+DEFPY (no_router_pim,
        no_router_pim_cmd,
        "no router pim [vrf NAME]",
        NO_STR
@@ -3424,7 +3424,7 @@ DEFPY_YANG (no_router_pim,
 }
 
 
-DEFPY_YANG (pim_spt_switchover_infinity,
+DEFPY (pim_spt_switchover_infinity,
        pim_spt_switchover_infinity_cmd,
        "spt-switchover infinity-and-beyond",
        "SPT-Switchover\n"
@@ -3632,7 +3632,7 @@ DEFPY_ATTR(no_ip_pim_spt_switchover_infinity_plist,
 	return ret;
 }
 
-DEFPY_YANG (pim_register_accept_list,
+DEFPY (pim_register_accept_list,
        pim_register_accept_list_cmd,
        "[no] register-accept-list PREFIXLIST4_NAME$word",
        NO_STR
@@ -4237,7 +4237,7 @@ DEFPY (no_ip_igmp_group_watermark,
 	return CMD_SUCCESS;
 }
 
-DEFPY_YANG (pim_v6_secondary,
+DEFPY (pim_v6_secondary,
        pim_v6_secondary_cmd,
        "send-v6-secondary",
        "Send v6 secondary addresses\n")
@@ -4297,7 +4297,7 @@ DEFPY_ATTR(ip_pim_v6_secondary,
 	return ret;
 }
 
-DEFPY_YANG (no_pim_v6_secondary,
+DEFPY (no_pim_v6_secondary,
        no_pim_v6_secondary_cmd,
        "no send-v6-secondary",
        NO_STR
@@ -4522,18 +4522,6 @@ DEFPY_ATTR(no_ip_pim_rp,
 	return ret;
 }
 
-DEFPY_YANG(pim_dm_prefix_list,
-      pim_dm_prefix_list_cmd,
-      "[no] dm prefix-list WORD$plist",
-      NO_STR
-      "PIM Dense Mode Multicast\n"
-      "Group range prefix-list filter\n"
-      "Name of a prefix-list\n")
-{
-	nb_cli_enqueue_change(vty, ".", NB_OP_MODIFY, no ? NULL : plist);
-	return nb_cli_apply_changes(vty, "./dm-prefix-list");
-}
-
 DEFPY (no_pim_rp_prefix_list,
        no_pim_rp_prefix_list_cmd,
        "no rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
@@ -4728,7 +4716,7 @@ DEFPY (pim_bsr_candidate_rp_group,
 	return pim_process_bsr_crp_grp_cmd(vty, group_str, no);
 }
 
-DEFPY_YANG (pim_ssm_prefix_list,
+DEFPY (pim_ssm_prefix_list,
        pim_ssm_prefix_list_cmd,
        "ssm prefix-list PREFIXLIST4_NAME$plist",
        "Source Specific Multicast\n"
@@ -4788,7 +4776,7 @@ DEFPY_ATTR(ip_pim_ssm_prefix_list,
 	return ret;
 }
 
-DEFPY_YANG (no_pim_ssm_prefix_list,
+DEFPY (no_pim_ssm_prefix_list,
        no_pim_ssm_prefix_list_cmd,
        "no ssm prefix-list",
        NO_STR
@@ -4848,7 +4836,7 @@ DEFPY_ATTR(no_ip_pim_ssm_prefix_list,
 	return ret;
 }
 
-DEFPY_YANG (no_pim_ssm_prefix_list_name,
+DEFPY (no_pim_ssm_prefix_list_name,
        no_pim_ssm_prefix_list_name_cmd,
        "no ssm prefix-list PREFIXLIST4_NAME$plist",
        NO_STR
@@ -5140,7 +5128,7 @@ DEFPY_ATTR(no_ip_pim_ssmpingd,
 	return ret;
 }
 
-DEFPY_YANG (pim_ecmp,
+DEFPY (pim_ecmp,
        pim_ecmp_cmd,
        "ecmp",
        "Enable PIM ECMP \n")
@@ -5195,7 +5183,7 @@ DEFPY_ATTR(ip_pim_ecmp,
 	return ret;
 }
 
-DEFPY_YANG (no_pim_ecmp,
+DEFPY (no_pim_ecmp,
        no_pim_ecmp_cmd,
        "no ecmp",
        NO_STR
@@ -5252,7 +5240,7 @@ DEFPY_ATTR(no_ip_pim_ecmp,
 	return ret;
 }
 
-DEFPY_YANG (pim_ecmp_rebalance,
+DEFPY (pim_ecmp_rebalance,
        pim_ecmp_rebalance_cmd,
        "ecmp rebalance",
        "Enable PIM ECMP \n"
@@ -5318,7 +5306,7 @@ DEFPY_ATTR(ip_pim_ecmp_rebalance,
 	return ret;
 }
 
-DEFPY_YANG (no_pim_ecmp_rebalance,
+DEFPY (no_pim_ecmp_rebalance,
        no_pim_ecmp_rebalance_cmd,
        "no ecmp rebalance",
        NO_STR
@@ -5380,7 +5368,7 @@ DEFPY_ATTR(no_ip_pim_ecmp_rebalance,
 	return ret;
 }
 
-DEFUN_YANG (interface_ip_igmp,
+DEFUN (interface_ip_igmp,
        interface_ip_igmp_cmd,
        "ip igmp",
        IP_STR
@@ -5392,7 +5380,7 @@ DEFUN_YANG (interface_ip_igmp,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_YANG (interface_no_ip_igmp,
+DEFUN (interface_no_ip_igmp,
        interface_no_ip_igmp_cmd,
        "no ip igmp",
        NO_STR
@@ -5476,7 +5464,7 @@ DEFPY_YANG (interface_ip_igmp_static_group,
 				    (src_str ? src_str : "0.0.0.0"));
 }
 
-DEFUN_YANG (interface_ip_igmp_query_interval,
+DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
        "ip igmp query-interval (1-65535)",
        IP_STR
@@ -5506,7 +5494,7 @@ DEFUN_YANG (interface_ip_igmp_query_interval,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_YANG (interface_no_ip_igmp_query_interval,
+DEFUN (interface_no_ip_igmp_query_interval,
        interface_no_ip_igmp_query_interval_cmd,
        "no ip igmp query-interval [(1-65535)]",
        NO_STR
@@ -5521,7 +5509,7 @@ DEFUN_YANG (interface_no_ip_igmp_query_interval,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_YANG (interface_ip_igmp_version,
+DEFUN (interface_ip_igmp_version,
        interface_ip_igmp_version_cmd,
        "ip igmp version (2-3)",
        IP_STR
@@ -5538,7 +5526,7 @@ DEFUN_YANG (interface_ip_igmp_version,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_YANG (interface_no_ip_igmp_version,
+DEFUN (interface_no_ip_igmp_version,
        interface_no_ip_igmp_version_cmd,
        "no ip igmp version (2-3)",
        NO_STR
@@ -5553,7 +5541,7 @@ DEFUN_YANG (interface_no_ip_igmp_version,
 				    "frr-routing:ipv4");
 }
 
-DEFPY_YANG (interface_ip_igmp_query_max_response_time,
+DEFPY (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
        "ip igmp query-max-response-time (1-65535)$qmrt",
        IP_STR
@@ -5564,7 +5552,7 @@ DEFPY_YANG (interface_ip_igmp_query_max_response_time,
 	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
 
-DEFUN_YANG (interface_no_ip_igmp_query_max_response_time,
+DEFUN (interface_no_ip_igmp_query_max_response_time,
        interface_no_ip_igmp_query_max_response_time_cmd,
        "no ip igmp query-max-response-time [(1-65535)]",
        NO_STR
@@ -5576,7 +5564,7 @@ DEFUN_YANG (interface_no_ip_igmp_query_max_response_time,
 	return gm_process_no_query_max_response_time_cmd(vty);
 }
 
-DEFUN_YANG_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
+DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      interface_ip_igmp_query_max_response_time_dsec_cmd,
 	      "ip igmp query-max-response-time-dsec (1-65535)",
 	      IP_STR
@@ -5606,7 +5594,7 @@ DEFUN_YANG_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_YANG_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
+DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      interface_no_ip_igmp_query_max_response_time_dsec_cmd,
 	      "no ip igmp query-max-response-time-dsec [(1-65535)]",
 	      NO_STR
@@ -5668,56 +5656,6 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
 	return gm_process_no_last_member_query_interval_cmd(vty);
 }
 
-DEFPY_YANG(interface_ip_igmp_limits,
-           interface_ip_igmp_limits_cmd,
-           "[no] ip igmp <max-sources$do_src (0-4294967295)$val"
-	     "|max-groups$do_grp (0-4294967295)$val>",
-           NO_STR
-           IP_STR
-           IFACE_IGMP_STR
-           "Limit number of IGMPv3 sources to track\n"
-           "Permitted number of sources\n"
-           "Limit number of IGMP group memberships to track\n"
-           "Permitted number of groups\n")
-{
-	const char *xpath;
-
-	assert(do_src || do_grp);
-	if (do_src)
-		xpath = "./max-sources";
-	else
-		xpath = "./max-groups";
-
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val_str);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
-}
-
-ALIAS_YANG(interface_ip_igmp_limits,
-           no_interface_ip_igmp_limits_cmd,
-           "no ip igmp <max-sources$do_src|max-groups$do_grp>",
-           NO_STR
-           IP_STR
-           IFACE_IGMP_STR
-           "Limit number of IGMPv3 sources to track\n"
-           "Limit number of IGMP group memberships to track\n")
-
-DEFPY_YANG(interface_ip_igmp_immediate_leave,
-           interface_ip_igmp_immediate_leave_cmd,
-           "[no] ip igmp immediate-leave",
-           NO_STR
-           IP_STR
-           IFACE_IGMP_STR
-           "Immediately drop group memberships on receiving Leave (IGMPv2 only)\n")
-{
-	nb_cli_enqueue_change(vty, "./immediate-leave", NB_OP_MODIFY, no ? "false" : "true");
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
-}
-
 DEFPY_YANG(interface_ip_igmp_require_ra, interface_ip_igmp_require_ra_cmd,
            "[no] ip igmp require-router-alert",
            NO_STR
@@ -5725,9 +5663,11 @@ DEFPY_YANG(interface_ip_igmp_require_ra, interface_ip_igmp_require_ra_cmd,
            IFACE_IGMP_STR
            "Require IP Router Alert option for IGMP packets\n")
 {
-	nb_cli_enqueue_change(vty, "./require-router-alert", NB_OP_MODIFY, no ? "false" : "true");
+	nb_cli_enqueue_change(vty, "./require-router-alert", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
 }
 
 DEFUN (interface_ip_pim_drprio,
@@ -5841,38 +5781,94 @@ DEFPY (interface_ip_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
-
-DEFPY (interface_ip_pim_passive,
-	interface_ip_pim_passive_cmd,
-	"[no] ip pim passive$passive",
-	NO_STR
-	IP_STR
-	PIM_STR
-	"Disable exchange of protocol packets\n")
+DEFUN_HIDDEN (interface_ip_pim_ssm,
+	      interface_ip_pim_ssm_cmd,
+	      "ip pim ssm",
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_STR)
 {
-	return pim_process_ip_pim_passive_cmd(vty, !no);
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	vty_out(vty,
+		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+
+	return NB_OK;
 }
 
+DEFUN_HIDDEN (interface_ip_pim_sm,
+	      interface_ip_pim_sm_cmd,
+	      "ip pim sm",
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
+{
+	return pim_process_ip_pim_cmd(vty);
+}
 
 DEFPY (interface_ip_pim,
        interface_ip_pim_cmd,
-       "[no] ip pim [sm|ssm$ssm|dm$dm|sm-dm$smdm]",
+       "ip pim [passive$passive]",
+       IP_STR
+       PIM_STR
+       "Disable exchange of protocol packets\n")
+{
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (interface_no_ip_pim_ssm,
+	      interface_no_ip_pim_ssm_cmd,
+	      "no ip pim ssm",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
+DEFUN_HIDDEN (interface_no_ip_pim_sm,
+	      interface_no_ip_pim_sm_cmd,
+	      "no ip pim sm",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
+DEFPY (interface_no_ip_pim,
+       interface_no_ip_pim_cmd,
+       "no ip pim [passive$passive]",
        NO_STR
        IP_STR
        PIM_STR
-       IFACE_PIM_SM_STR
-       IFACE_PIM_STR
-       IFACE_PIM_DM_STR
-       IFACE_PIM_SMDM_STR)
+       "Disable exchange of protocol packets\n")
 {
-	if (no)
-		return pim_process_no_ip_pim_cmd(vty);
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, false);
 
-	return pim_process_ip_pim_mode_cmd(vty, dm, smdm, ssm);
+	return pim_process_no_ip_pim_cmd(vty);
 }
 
 /* boundaries */
-DEFUN_YANG(interface_ip_pim_boundary_oil,
+DEFUN(interface_ip_pim_boundary_oil,
       interface_ip_pim_boundary_oil_cmd,
       "ip multicast boundary oil WORD",
       IP_STR
@@ -5884,7 +5880,7 @@ DEFUN_YANG(interface_ip_pim_boundary_oil,
 	return pim_process_ip_pim_boundary_oil_cmd(vty, argv[4]->arg);
 }
 
-DEFUN_YANG(interface_no_ip_pim_boundary_oil,
+DEFUN(interface_no_ip_pim_boundary_oil,
       interface_no_ip_pim_boundary_oil_cmd,
       "no ip multicast boundary oil [WORD]",
       NO_STR
@@ -6002,34 +5998,6 @@ DEFPY (interface_ip_igmp_proxy,
 	return pim_process_ip_gmp_proxy_cmd(vty, !no);
 }
 
-
-DEFPY_YANG(interface_ip_pim_neighbor_prefix_list,
-           interface_ip_pim_neighbor_prefix_list_cmd,
-           "[no] ip pim allowed-neighbors prefix-list WORD",
-           NO_STR
-           IP_STR
-           "pim multicast routing\n"
-           "Restrict allowed PIM neighbors\n"
-           "Use prefix-list to filter neighbors\n"
-           "Name of a prefix-list\n")
-{
-	if (no)
-		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_MODIFY,
-				      prefix_list);
-
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
-}
-
-ALIAS (interface_ip_pim_neighbor_prefix_list,
-       interface_no_ip_pim_neighbor_prefix_list_cmd,
-       "no ip pim allowed-neighbors [prefix-list]",
-       NO_STR
-       IP_STR
-       "pim multicast routing\n"
-       "Restrict allowed PIM neighbors\n"
-       "Use prefix-list to filter neighbors\n")
 
 DEFUN (debug_igmp,
        debug_igmp_cmd,
@@ -6605,35 +6573,6 @@ DEFUN (no_debug_autorp,
 	return CMD_SUCCESS;
 }
 
-DEFPY (debug_graft,
-       debug_graft_cmd,
-       "[no] debug pim graft",
-       NO_STR
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_GRAFT_STR)
-{
-	if (!!no)
-		PIM_DO_DEBUG_GRAFT;
-	else
-		PIM_DONT_DEBUG_GRAFT;
-	return CMD_SUCCESS;
-}
-
-DEFPY (debug_state_refresh,
-       debug_state_refresh_cmd,
-       "[no] debug pim state-refresh",
-       NO_STR
-       DEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_STATE_REFRESH_STR)
-{
-	if (!!no)
-		PIM_DO_DEBUG_STATE_REFRESH;
-	else
-		PIM_DONT_DEBUG_STATE_REFRESH;
-	return CMD_SUCCESS;
-}
 
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
@@ -6650,7 +6589,7 @@ DEFUN_NOSH (show_debugging_pim,
 	return CMD_SUCCESS;
 }
 
-DEFUN_YANG (interface_pim_use_source,
+DEFUN (interface_pim_use_source,
        interface_pim_use_source_cmd,
        "ip pim use-source A.B.C.D",
        IP_STR
@@ -6665,7 +6604,7 @@ DEFUN_YANG (interface_pim_use_source,
 				    "frr-routing:ipv4");
 }
 
-DEFUN_YANG (interface_no_pim_use_source,
+DEFUN (interface_no_pim_use_source,
        interface_no_pim_use_source_cmd,
        "no ip pim use-source [A.B.C.D]",
        NO_STR
@@ -6681,7 +6620,7 @@ DEFUN_YANG (interface_no_pim_use_source,
 				    "frr-routing:ipv4");
 }
 
-DEFPY_YANG (ip_pim_bfd,
+DEFPY (ip_pim_bfd,
        ip_pim_bfd_cmd,
        "ip pim bfd [profile BFDPROF$prof]",
        IP_STR
@@ -6714,7 +6653,7 @@ DEFPY_YANG (ip_pim_bfd,
 				    "frr-routing:ipv4");
 }
 
-DEFPY_YANG(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
+DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
       "no ip pim bfd profile [BFDPROF]",
       NO_STR
       IP_STR
@@ -6730,7 +6669,7 @@ DEFPY_YANG(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
 			"frr-routing:ipv4");
 }
 
-DEFUN_YANG (no_ip_pim_bfd,
+DEFUN (no_ip_pim_bfd,
        no_ip_pim_bfd_cmd,
        "no ip pim bfd",
        NO_STR
@@ -6745,7 +6684,7 @@ DEFUN_YANG (no_ip_pim_bfd,
 			"frr-routing:ipv4");
 }
 
-DEFUN_YANG (ip_pim_bsm,
+DEFUN (ip_pim_bsm,
        ip_pim_bsm_cmd,
        "ip pim bsm",
        IP_STR
@@ -6754,7 +6693,7 @@ DEFUN_YANG (ip_pim_bsm,
 {
 	return pim_process_bsm_cmd(vty);
 }
-DEFUN_YANG (no_ip_pim_bsm,
+DEFUN (no_ip_pim_bsm,
        no_ip_pim_bsm_cmd,
        "no ip pim bsm",
        NO_STR
@@ -6765,7 +6704,7 @@ DEFUN_YANG (no_ip_pim_bsm,
 	return pim_process_no_bsm_cmd(vty);
 }
 
-DEFUN_YANG (ip_pim_ucast_bsm,
+DEFUN (ip_pim_ucast_bsm,
        ip_pim_ucast_bsm_cmd,
        "ip pim unicast-bsm",
        IP_STR
@@ -6775,7 +6714,7 @@ DEFUN_YANG (ip_pim_ucast_bsm,
 	return pim_process_unicast_bsm_cmd(vty);
 }
 
-DEFUN_YANG (no_ip_pim_ucast_bsm,
+DEFUN (no_ip_pim_ucast_bsm,
        no_ip_pim_ucast_bsm_cmd,
        "no ip pim unicast-bsm",
        NO_STR
@@ -6787,7 +6726,7 @@ DEFUN_YANG (no_ip_pim_ucast_bsm,
 }
 
 #if HAVE_BFDD > 0
-DEFUN_YANG_HIDDEN (
+DEFUN_HIDDEN (
 	ip_pim_bfd_param,
 	ip_pim_bfd_param_cmd,
 	"ip pim bfd (2-255) (1-65535) (1-65535)",
@@ -6798,7 +6737,7 @@ DEFUN_YANG_HIDDEN (
 	"Required min receive interval\n"
 	"Desired min transmit interval\n")
 #else
-	DEFUN_YANG(
+	DEFUN(
 		ip_pim_bfd_param,
 		ip_pim_bfd_param_cmd,
 		"ip pim bfd (2-255) (1-65535) (1-65535)",
@@ -6852,7 +6791,7 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-DEFPY_YANG(pim_msdp_peer, pim_msdp_peer_cmd,
+DEFPY(pim_msdp_peer, pim_msdp_peer_cmd,
       "msdp peer A.B.C.D$peer source A.B.C.D$source",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
@@ -6917,7 +6856,7 @@ DEFPY_ATTR(ip_pim_msdp_peer,
 	return ret;
 }
 
-DEFPY_YANG(msdp_peer_md5, msdp_peer_md5_cmd,
+DEFPY(msdp_peer_md5, msdp_peer_md5_cmd,
       "msdp peer A.B.C.D$peer password WORD$psk",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
@@ -6942,7 +6881,7 @@ DEFPY_YANG(msdp_peer_md5, msdp_peer_md5_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY_YANG(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
+DEFPY(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
       "no msdp peer A.B.C.D$peer password [WORD]",
       NO_STR
       CFG_MSDP_STR
@@ -6968,7 +6907,7 @@ DEFPY_YANG(no_msdp_peer_md5, no_msdp_peer_md5_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY_YANG(pim_msdp_timers, pim_msdp_timers_cmd,
+DEFPY(pim_msdp_timers, pim_msdp_timers_cmd,
       "msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
       CFG_MSDP_STR
       "MSDP timers configuration\n"
@@ -7043,7 +6982,7 @@ DEFPY_ATTR(ip_pim_msdp_timers,
 	return ret;
 }
 
-DEFPY_YANG(no_pim_msdp_timers, no_pim_msdp_timers_cmd,
+DEFPY(no_pim_msdp_timers, no_pim_msdp_timers_cmd,
       "no msdp timers [(1-65535) (1-65535) [(1-65535)]]",
       NO_STR
       CFG_MSDP_STR
@@ -7107,7 +7046,7 @@ DEFPY_ATTR(no_ip_pim_msdp_timers,
 	return ret;
 }
 
-DEFPY_YANG (no_pim_msdp_peer,
+DEFPY (no_pim_msdp_peer,
        no_pim_msdp_peer_cmd,
        "no msdp peer A.B.C.D",
        NO_STR
@@ -7169,7 +7108,7 @@ DEFPY_ATTR(no_ip_pim_msdp_peer,
 	return ret;
 }
 
-DEFPY_YANG(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
+DEFPY(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
       "msdp peer A.B.C.D$peer sa-filter ACL_NAME$acl_name <in|out>$dir",
       CFG_MSDP_STR
       "Configure MSDP peer\n"
@@ -7200,7 +7139,7 @@ DEFPY_YANG(msdp_peer_sa_filter, msdp_peer_sa_filter_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY_YANG(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
+DEFPY(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
       "no msdp peer A.B.C.D$peer sa-filter ACL_NAME <in|out>$dir",
       NO_STR
       CFG_MSDP_STR
@@ -7232,7 +7171,7 @@ DEFPY_YANG(no_msdp_peer_sa_filter, no_ip_msdp_peer_sa_filter_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY_YANG(pim_msdp_mesh_group_member,
+DEFPY(pim_msdp_mesh_group_member,
       pim_msdp_mesh_group_member_cmd,
       "msdp mesh-group WORD$gname member A.B.C.D$maddr",
       CFG_MSDP_STR
@@ -7310,7 +7249,7 @@ DEFPY_ATTR(ip_pim_msdp_mesh_group_member,
 	return ret;
 }
 
-DEFPY_YANG(no_pim_msdp_mesh_group_member,
+DEFPY(no_pim_msdp_mesh_group_member,
       no_pim_msdp_mesh_group_member_cmd,
       "no msdp mesh-group WORD$gname member A.B.C.D$maddr",
       NO_STR
@@ -7429,7 +7368,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group_member,
 	return ret;
 }
 
-DEFPY_YANG(pim_msdp_mesh_group_source,
+DEFPY(pim_msdp_mesh_group_source,
       pim_msdp_mesh_group_source_cmd,
       "msdp mesh-group WORD$gname source A.B.C.D$saddr",
       CFG_MSDP_STR
@@ -7502,7 +7441,7 @@ DEFPY_ATTR(ip_pim_msdp_mesh_group_source,
 	return ret;
 }
 
-DEFPY_YANG(no_pim_msdp_mesh_group_source,
+DEFPY(no_pim_msdp_mesh_group_source,
       no_pim_msdp_mesh_group_source_cmd,
       "no msdp mesh-group WORD$gname source [A.B.C.D]",
       NO_STR
@@ -7590,7 +7529,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group_source,
 	return ret;
 }
 
-DEFPY_YANG(no_pim_msdp_mesh_group,
+DEFPY(no_pim_msdp_mesh_group,
       no_pim_msdp_mesh_group_cmd,
       "no msdp mesh-group WORD$gname",
       NO_STR
@@ -7658,7 +7597,7 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
 	return ret;
 }
 
-DEFPY_YANG(msdp_shutdown,
+DEFPY(msdp_shutdown,
       msdp_shutdown_cmd,
       "[no] msdp shutdown",
       NO_STR
@@ -7676,7 +7615,7 @@ DEFPY_YANG(msdp_shutdown,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
+DEFPY(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
       "[no] msdp peer A.B.C.D$peer sa-limit ![(1-4294967294)$sa_limit]",
       NO_STR
       CFG_MSDP_STR
@@ -7699,7 +7638,7 @@ DEFPY_YANG(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY_YANG(msdp_originator_id, msdp_originator_id_cmd,
+DEFPY(msdp_originator_id, msdp_originator_id_cmd,
       "[no] msdp originator-id ![A.B.C.D$originator_id]",
       NO_STR
       CFG_MSDP_STR
@@ -8445,7 +8384,7 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFPY_YANG(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
+DEFPY(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
       "[no] msdp log neighbor-events",
       NO_STR
       MSDP_STR
@@ -8460,7 +8399,7 @@ DEFPY_YANG(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
+DEFPY(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
       "[no] msdp log sa-events",
       NO_STR
       MSDP_STR
@@ -8748,7 +8687,7 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 	return CMD_SUCCESS;
 }
 
-DEFPY_YANG_HIDDEN (no_pim_mlag,
+DEFPY_HIDDEN (no_pim_mlag,
 	      no_pim_mlag_cmd,
 	      "no mlag",
 	      NO_STR
@@ -8805,7 +8744,7 @@ DEFPY_ATTR(no_ip_pim_mlag,
 	return ret;
 }
 
-DEFPY_YANG_HIDDEN (pim_mlag,
+DEFPY_HIDDEN (pim_mlag,
 	      pim_mlag_cmd,
 	      "mlag INTERFACE$iface role [primary|secondary]$role state [up|down]$state addr A.B.C.D$addr",
 	      "MLAG\n"
@@ -9146,7 +9085,6 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
-	install_element(PIM_NODE, &pim_dm_prefix_list_cmd);
 
 	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
 
@@ -9177,13 +9115,14 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_igmp_limits_cmd);
-	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_require_ra_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_passive_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
@@ -9192,8 +9131,6 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_acl_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_neighbor_prefix_list_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_neighbor_prefix_list_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
@@ -9404,10 +9341,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 	install_element(CONFIG_NODE, &debug_autorp_cmd);
 	install_element(CONFIG_NODE, &no_debug_autorp_cmd);
-	install_element(ENABLE_NODE, &debug_graft_cmd);
-	install_element(CONFIG_NODE, &debug_graft_cmd);
-	install_element(ENABLE_NODE, &debug_state_refresh_cmd);
-	install_element(CONFIG_NODE, &debug_state_refresh_cmd);
 
 	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
 	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);

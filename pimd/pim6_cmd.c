@@ -20,7 +20,6 @@
 
 #include "pimd.h"
 #include "pim6_cmd.h"
-#include "pim_iface.h"
 #include "pim_cmd_common.h"
 #include "pim_vty.h"
 #include "lib/northbound_cli.h"
@@ -29,8 +28,7 @@
 #include "pim_addr.h"
 #include "pim_nht.h"
 #include "pim_bsm.h"
-#include "pim_ssm.h"
-#include "pim_util.h"
+#include "pim_iface.h"
 #include "pim_zebra.h"
 #include "pim_instance.h"
 
@@ -804,32 +802,38 @@ DEFPY_ATTR(no_ipv6_pim_register_suppress,
 	return ret;
 }
 
-DEFPY (interface_ipv6_pim_passive,
-	interface_ipv6_pim_passive_cmd,
-	"[no] ipv6 pim passive$passive",
-	NO_STR
-	IPV6_STR
-	PIM_STR
-	"Disable exchange of protocol packets\n")
-{
-	return pim_process_ip_pim_passive_cmd(vty, !no);
-}
-
 DEFPY (interface_ipv6_pim,
        interface_ipv6_pim_cmd,
-       "[no] ipv6 pim [sm|ssm$ssm|dm$dm|sm-dm$smdm]",
+       "ipv6 pim [passive$passive]",
+       IPV6_STR
+       PIM_STR
+       "Disable exchange of protocol packets\n")
+{
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (interface_no_ipv6_pim,
+       interface_no_ipv6_pim_cmd,
+       "no ipv6 pim [passive$passive]",
        NO_STR
        IPV6_STR
        PIM_STR
-       IFACE_PIM_SM_STR
-       IFACE_PIM_STR
-       IFACE_PIM_DM_STR
-       IFACE_PIM_SMDM_STR)
+       "Disable exchange of protocol packets\n")
 {
-	if (no)
-		return pim_process_no_ip_pim_cmd(vty);
+	if (passive)
+		return pim_process_ip_pim_passive_cmd(vty, false);
 
-	return pim_process_ip_pim_mode_cmd(vty, dm, smdm, ssm);
+	return pim_process_no_ip_pim_cmd(vty);
 }
 
 DEFPY (interface_ipv6_pim_drprio,
@@ -891,6 +895,58 @@ DEFPY (interface_ipv6_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
+DEFPY_HIDDEN (interface_ipv6_pim_ssm,
+              interface_ipv6_pim_ssm_cmd,
+              "ipv6 pim ssm",
+              IPV6_STR
+              PIM_STR
+              IFACE_PIM_STR)
+{
+	int ret;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	vty_out(vty,
+		"Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+
+	return NB_OK;
+}
+
+DEFPY_HIDDEN (interface_no_ipv6_pim_ssm,
+              interface_no_ipv6_pim_ssm_cmd,
+              "no ipv6 pim ssm",
+              NO_STR
+              IPV6_STR
+              PIM_STR
+              IFACE_PIM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
+DEFPY_HIDDEN (interface_ipv6_pim_sm,
+	      interface_ipv6_pim_sm_cmd,
+	      "ipv6 pim sm",
+	      IPV6_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
+{
+	return pim_process_ip_pim_cmd(vty);
+}
+
+DEFPY_HIDDEN (interface_no_ipv6_pim_sm,
+	      interface_no_ipv6_pim_sm_cmd,
+	      "no ipv6 pim sm",
+	      NO_STR
+	      IPV6_STR
+	      PIM_STR
+	      IFACE_PIM_SM_STR)
+{
+	return pim_process_no_ip_pim_cmd(vty);
+}
+
 /* boundaries */
 DEFPY (interface_ipv6_pim_boundary_oil,
       interface_ipv6_pim_boundary_oil_cmd,
@@ -941,20 +997,6 @@ DEFPY (interface_no_ipv6_mroute,
 {
 	return pim_process_no_ip_mroute_cmd(vty, interface, group_str,
 					    source_str);
-}
-
-DEFPY_YANG(interface_ipv6_pim_use_source,
-           interface_ipv6_pim_use_source_cmd,
-           "[no] ipv6 pim use-source X:X::X:X$source",
-           NO_STR
-           IPV6_STR
-           PIM_STR
-           "Configure primary IPv6 address\n"
-           "Source IPv6 address\n")
-{
-	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, no ? "::" : source_str);
-
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv6");
 }
 
 DEFPY (pim6_rp,
@@ -1423,26 +1465,6 @@ DEFPY_ATTR(no_ipv6_ssmpingd,
 	return ret;
 }
 
-DEFPY_YANG(ipv6_pim_ssm,
-           ipv6_pim_ssm_cmd,
-           "[no] ssm prefix-list PREFIXLIST6_NAME$plist",
-           NO_STR
-           "Source Specific Multicast\n"
-           "Group range prefix-list filter\n"
-           "Name of a prefix-list\n")
-{
-	char ssm_plist_xpath[XPATH_MAXLEN];
-
-	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "./ssm-prefix-list");
-
-	if (no)
-		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, plist);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 DEFPY_YANG_HIDDEN (interface_ipv6_mld_join,
                    interface_ipv6_mld_join_cmd,
                    "[no] ipv6 mld join X:X::X:X$grp [X:X::X:X]$src",
@@ -1590,56 +1612,6 @@ DEFPY (interface_no_ipv6_mld_version,
 				    "frr-routing:ipv6");
 }
 
-DEFPY_YANG(interface_ipv6_mld_limits,
-           interface_ipv6_mld_limits_cmd,
-           "[no] ipv6 mld <max-sources$do_src (0-4294967295)$val"
-	     "|max-groups$do_grp (0-4294967295)$val>",
-           NO_STR
-           IPV6_STR
-           IFACE_MLD_STR
-           "Limit number of MLDv2 sources to track\n"
-           "Permitted number of sources\n"
-           "Limit number of MLD group memberships to track\n"
-           "Permitted number of groups\n")
-{
-	const char *xpath;
-
-	assert(do_src || do_grp);
-	if (do_src)
-		xpath = "./max-sources";
-	else
-		xpath = "./max-groups";
-
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val_str);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
-}
-
-ALIAS_YANG(interface_ipv6_mld_limits,
-           no_interface_ipv6_mld_limits_cmd,
-           "no ipv6 mld <max-sources$do_src|max-groups$do_grp>",
-           NO_STR
-           IPV6_STR
-           IFACE_MLD_STR
-           "Limit number of MLDv2 sources to track\n"
-           "Limit number of MLD group memberships to track\n")
-
-DEFPY_YANG(interface_ipv6_mld_immediate_leave,
-           interface_ipv6_mld_immediate_leave_cmd,
-           "[no] ipv6 mld immediate-leave",
-           NO_STR
-           IPV6_STR
-           IFACE_MLD_STR
-           "Immediately drop group memberships on receiving Leave (MLDv1 only)\n")
-{
-	nb_cli_enqueue_change(vty, "./immediate-leave", NB_OP_MODIFY, no ? "false" : "true");
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
-}
-
 DEFPY (interface_ipv6_mld_query_interval,
        interface_ipv6_mld_query_interval_cmd,
        "ipv6 mld query-interval (1-65535)$q_interval",
@@ -1781,34 +1753,6 @@ DEFPY (interface_no_ipv6_mld_last_member_query_interval,
 	return gm_process_no_last_member_query_interval_cmd(vty);
 }
 
-DEFPY_YANG(interface_ipv6_pim_neighbor_prefix_list,
-           interface_ipv6_pim_neighbor_prefix_list_cmd,
-           "[no] ipv6 pim allowed-neighbors prefix-list PREFIXLIST6_NAME$prefix_list",
-           NO_STR
-           IP_STR
-           PIM_STR
-           "Restrict allowed PIM neighbors\n"
-           "Use prefix-list to filter neighbors\n"
-           "Name of a prefix-list\n")
-{
-	if (no)
-		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_MODIFY,
-				      prefix_list);
-
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
-}
-
-ALIAS(interface_ipv6_pim_neighbor_prefix_list,
-      interface_no_ipv6_pim_neighbor_prefix_list_cmd,
-      "no ipv6 pim allowed-neighbors [prefix-list]",
-      NO_STR
-      IP_STR
-      PIM_STR
-      "Restrict allowed PIM neighbors\n"
-      "Use prefix-list to filter neighbors\n")
-
 DEFPY_YANG(interface_ipv6_mld_require_ra, interface_ipv6_mld_require_ra_cmd,
            "[no] ipv6 mld require-router-alert",
            NO_STR
@@ -1816,9 +1760,11 @@ DEFPY_YANG(interface_ipv6_mld_require_ra, interface_ipv6_mld_require_ra_cmd,
            IFACE_MLD_STR
            "Require IP Router Alert option for MLD packets\n")
 {
-	nb_cli_enqueue_change(vty, "./require-router-alert", NB_OP_MODIFY, no ? "false" : "true");
+	nb_cli_enqueue_change(vty, "./require-router-alert", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
 }
 
 DEFPY (show_ipv6_pim_rp,
@@ -2409,101 +2355,6 @@ DEFPY (show_ipv6_pim_bsrp,
 	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
 }
 
-DEFPY(show_ipv6_pim_ssm_range,
-      show_ipv6_pim_ssm_range_cmd,
-      "show ipv6 pim [vrf NAME$vrf_name] group-type [json$json]",
-      SHOW_STR
-      IPV6_STR
-      PIM_STR
-      VRF_CMD_HELP_STR
-      "PIM group type\n"
-      JSON_STR)
-{
-	struct pim_instance *pim;
-	const char *range_str;
-	struct pim_ssm *ssm;
-	struct vrf *vrf = pim_cmd_lookup_json(vty, vrf_name, !!json);
-
-	if (!vrf || !vrf->info)
-		return CMD_WARNING;
-
-	pim = vrf->info;
-	ssm = pim->ssm_info;
-	range_str = ssm->plist_name ? ssm->plist_name : PIM6_SSM_STANDARD_RANGE;
-	if (json) {
-		struct json_object *json_root;
-
-		json_root = json_object_new_object();
-		json_object_string_add(json_root, "ssmGroups", range_str);
-		vty_json(vty, json_root);
-	} else
-		vty_out(vty, "SSM group range : %s\n", range_str);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(show_ipv6_pim_group_type,
-      show_ipv6_pim_group_type_cmd,
-      "show ipv6 pim [vrf NAME$vrf_name] group-type X:X::X:X$group [json$json]",
-      SHOW_STR
-      IP_STR
-      PIM_STR
-      VRF_CMD_HELP_STR
-      "multicast group type\n"
-      "group address\n"
-      JSON_STR)
-{
-	struct pim_instance *pim;
-	const char *type_str;
-	struct vrf *vrf = pim_cmd_lookup_json(vty, vrf_name, !!json);
-
-	if (!vrf || !vrf->info)
-		return CMD_WARNING;
-
-	pim = vrf->info;
-	if (pim_is_group_ff00_8(group))
-		type_str = pim_is_grp_ssm(pim, group) ? "SSM" : "ASM";
-	else
-		type_str = "not-multicast";
-
-	if (json) {
-		struct json_object *json_root;
-
-		json_root = json_object_new_object();
-		json_object_string_add(json_root, "groupType", type_str);
-		vty_json(vty, json_root);
-	} else
-		vty_out(vty, "Group type : %s\n", type_str);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(clear_ipv6_mld_interfaces,
-      clear_ipv6_mld_interfaces_cmd,
-      "clear ipv6 mld [vrf NAME$vrf_name] interfaces",
-      CLEAR_STR
-      IPV6_STR
-      "MLD clear commands\n"
-      VRF_CMD_HELP_STR
-      "Reset MLD interfaces\n")
-{
-	struct interface *ifp;
-	struct vrf *vrf;
-
-	vrf = vrf_name ? vrf_lookup_by_name(vrf_name) : vrf_lookup_by_id(VRF_DEFAULT);
-	if (!vrf) {
-		vty_out(vty, "Specified VRF: %s does not exist\n", vrf_name);
-		return CMD_WARNING;
-	}
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		pim_if_addr_del_all(ifp);
-	FOR_ALL_INTERFACES (vrf, ifp)
-		pim_if_addr_add_all(ifp);
-
-	return CMD_SUCCESS;
-}
-
 DEFPY (clear_ipv6_pim_statistics,
        clear_ipv6_pim_statistics_cmd,
        "clear ipv6 pim statistics [vrf NAME]$name",
@@ -3002,7 +2853,6 @@ void pim_cmd_init(void)
 	install_element(PIM6_NODE, &pim6_embedded_rp_group_list_cmd);
 	install_element(PIM6_NODE, &pim6_embedded_rp_limit_cmd);
 
-	install_element(PIM6_NODE, &ipv6_pim_ssm_cmd);
 	install_element(PIM6_NODE, &pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &no_pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_cmd);
@@ -3015,21 +2865,20 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_passive_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_mld_limits_cmd);
-	install_element(INTERFACE_NODE, &no_interface_ipv6_mld_limits_cmd);
-
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_use_source_cmd);
-
 	/* Install BSM command */
 	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_pim_bsm_cmd);
@@ -3043,7 +2892,6 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_static_group_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_mld_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
@@ -3059,8 +2907,6 @@ void pim_cmd_init(void)
 			&interface_ipv6_mld_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_last_member_query_interval_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_neighbor_prefix_list_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_neighbor_prefix_list_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_require_ra_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
@@ -3104,9 +2950,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsrp_cmd);
-	install_element(VIEW_NODE, &show_ipv6_pim_ssm_range_cmd);
-	install_element(VIEW_NODE, &show_ipv6_pim_group_type_cmd);
-	install_element(ENABLE_NODE, &clear_ipv6_mld_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_oil_cmd);
