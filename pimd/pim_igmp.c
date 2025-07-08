@@ -27,8 +27,6 @@
 #include "pim_time.h"
 #include "pim_ssm.h"
 #include "pim_tib.h"
-#include "pim_pim.h"
-#include "pim_dm.h"
 
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct event *t);
@@ -381,7 +379,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 				"Querier %s resetting TIMER event for Other-Querier-Present",
 				ifaddr_str);
 		}
-		event_cancel(&igmp->t_other_querier_timer);
+		EVENT_OFF(igmp->t_other_querier_timer);
 	} else {
 		/*
 		  We are the current querier, then stop sending general queries:
@@ -443,7 +441,7 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	event_cancel(&igmp->t_other_querier_timer);
+	EVENT_OFF(igmp->t_other_querier_timer);
 }
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
@@ -772,8 +770,9 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 
 	if (pim_interface->gmp_require_ra && !router_alert) {
 		if (PIM_DEBUG_GM_PACKETS)
-			zlog_debug("discarding IGMP packet from %pI4 on %s due to Router Alert option missing",
-				   &ip_hdr->ip_src, igmp->interface->name);
+			zlog_debug(
+				"discarding IGMP packet from %pI4 on %s due to Router Alert option missing",
+				&ip_hdr->ip_src, igmp->interface->name);
 		return -1;
 	}
 
@@ -923,7 +922,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	event_cancel(&igmp->t_igmp_query_timer);
+	EVENT_OFF(igmp->t_igmp_query_timer);
 }
 
 /* Issue IGMP general query */
@@ -993,7 +992,7 @@ static void sock_close(struct gm_sock *igmp)
 				igmp->interface->name);
 		}
 	}
-	event_cancel(&igmp->t_igmp_read);
+	EVENT_OFF(igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
 		flog_err(
@@ -1070,9 +1069,7 @@ void igmp_group_delete(struct gm_group *group)
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
 	struct gm_source *src;
-	struct interface *ifp = group->interface;
-	struct pim_interface *pim_ifp = ifp->info;
-
+	struct pim_interface *pim_ifp = group->interface->info;
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1087,7 +1084,7 @@ void igmp_group_delete(struct gm_group *group)
 		igmp_source_delete(src);
 	}
 
-	event_cancel(&group->t_group_query_retransmit_timer);
+	EVENT_OFF(group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
@@ -1390,7 +1387,7 @@ static void group_timer_off(struct gm_group *group)
 		zlog_debug("Cancelling TIMER event for group %s on %s",
 			   group_str, group->interface->name);
 	}
-	event_cancel(&group->t_group_timer);
+	EVENT_OFF(group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,
@@ -1456,14 +1453,6 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 				__func__, &group_addr);
 		return NULL;
 	}
-
-	if (listcount(pim_ifp->gm_group_list) >= pim_ifp->gm_group_limit) {
-		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug("interface %s has reached group limit (%u), refusing to add group %pI4",
-				   igmp->interface->name, pim_ifp->gm_group_limit, &group_addr);
-		return NULL;
-	}
-
 	/*
 	  Non-existant group is created as INCLUDE {empty}:
 
