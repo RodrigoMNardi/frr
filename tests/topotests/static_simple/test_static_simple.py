@@ -255,3 +255,16 @@ def test_static_vrf_cli(tgen):
 
 def test_static_vrf_file(tgen):
     guts(tgen, "red", False)
+
+
+def test_static_invalid_distance_cli(tgen):
+    """
+    Test if the CLI rejects an invalid administrative distance (>255).
+    """
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.routers()["r1"]
+    cmd = "configure terminal\nip route 10.10.10.0/24 101.0.0.2 300\n"
+    output = r1.vtysh_cmd(cmd)
+    assert "Invalid administrative distance" in output, f"Expected invalid distance error, got: {output}"
