@@ -181,8 +181,15 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	}
 
 	/* Administrative distance. */
-	if (args->distance)
+	if (args->distance) {
 		distance = strtol(args->distance, NULL, 10);
+		if (distance < 1 || distance > 255) {
+			vty_out(vty,
+				"%% Invalid administrative distance: %s (must be 1-255)\n",
+				args->distance);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	/* tag */
 	if (args->tag)
